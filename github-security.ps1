@@ -19,7 +19,7 @@ foreach ($file in $workflows) {
     $content = Get-Content $file.FullName -Raw
     $lines   = Get-Content $file.FullName
 
-    # ── CRITICAL 1: Missing top-level or job-level permissions ──────────────
+    # CRITICAL 1: Missing permissions block
     if ($content -notmatch '(?m)^permissions:' -and $content -notmatch '^\s{2,4}permissions:') {
         $findings += [PSCustomObject]@{
             Severity = "CRITICAL"
@@ -29,7 +29,7 @@ foreach ($file in $workflows) {
         }
     }
 
-    # ── CRITICAL 2: ${{ }} expressions inside run: blocks ───────────────────
+    # CRITICAL 2: ${{ }} expressions inside run: blocks
     $inRunBlock = $false
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $line = $lines[$i]
@@ -41,24 +41,24 @@ foreach ($file in $workflows) {
                 Severity = "CRITICAL"
                 File     = $file.Name
                 Line     = ($i + 1)
-                Issue    = "Expression `${{ }} in run: block (script injection risk): $($line.Trim())"
+                Issue    = "Expression in run block (injection risk): " + $line.Trim()
             }
         }
     }
 
-    # ── CRITICAL 3: Unsanitized writes to $GITHUB_ENV ───────────────────────
+    # CRITICAL 3: Unsanitized writes to GITHUB_ENV
     for ($i = 0; $i -lt $lines.Count; $i++) {
         if ($lines[$i] -match '\$GITHUB_ENV' -and $lines[$i] -match '\$\{\{') {
             $findings += [PSCustomObject]@{
                 Severity = "CRITICAL"
                 File     = $file.Name
                 Line     = ($i + 1)
-                Issue    = "Unsanitized expression written to `$GITHUB_ENV: $($lines[$i].Trim())"
+                Issue    = "Unsanitized expression written to GITHUB_ENV: " + $lines[$i].Trim()
             }
         }
     }
 
-    # ── CRITICAL 4: pull_request_target trigger ──────────────────────────────
+    # CRITICAL 4: pull_request_target trigger
     if ($content -match 'pull_request_target') {
         $lineNum = ($lines | Select-String 'pull_request_target' | Select-Object -First 1).LineNumber
         $findings += [PSCustomObject]@{
@@ -69,13 +69,13 @@ foreach ($file in $workflows) {
         }
     }
 
-    # ── CRITICAL 5: Potential committed secrets (basic patterns) ────────────
+    # CRITICAL 5: Potential committed secrets
     $secretPatterns = @(
-        'ghp_[A-Za-z0-9]{36}',          # GitHub PAT
-        'AKIA[0-9A-Z]{16}',              # AWS Access Key
-        'AIza[0-9A-Za-z\-_]{35}',        # GCP API Key
-        'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+',  # JWT
-        'password\s*[:=]\s*\S+'          # hardcoded password
+        'ghp_[A-Za-z0-9]{36}',
+        'AKIA[0-9A-Z]{16}',
+        'AIza[0-9A-Za-z\-_]{35}',
+        'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+',
+        'password\s*[:=]\s*\S+'
     )
     foreach ($pattern in $secretPatterns) {
         for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -84,19 +84,17 @@ foreach ($file in $workflows) {
                     Severity = "CRITICAL"
                     File     = $file.Name
                     Line     = ($i + 1)
-                    Issue    = "Possible committed secret (pattern: $pattern): $($lines[$i].Trim())"
+                    Issue    = "Possible secret (pattern: $pattern): " + $lines[$i].Trim()
                 }
             }
         }
     }
 
-    # ── HIGH: Third-party actions not pinned to commit SHA ───────────────────
+    # HIGH: Actions not pinned to commit SHA
     for ($i = 0; $i -lt $lines.Count; $i++) {
         if ($lines[$i] -match '^\s+uses:\s+(.+)') {
             $action = $matches[1].Trim()
-            # Skip local actions and actions/checkout etc pinned with SHA
             if ($action -notmatch '^\./' -and $action -notmatch '@[a-f0-9]{40}$') {
-                # Flag anything not pinned to full SHA
                 $findings += [PSCustomObject]@{
                     Severity = "HIGH"
                     File     = $file.Name
@@ -108,16 +106,14 @@ foreach ($file in $workflows) {
     }
 }
 
-# ── Output ───────────────────────────────────────────────────────────────────
+# Output
 if ($findings.Count -eq 0) {
-    Write-Host "`n✅ No issues found." -ForegroundColor Green
+    Write-Host "`nNo issues found." -ForegroundColor Green
 } else {
-    Write-Host "`n🔍 Found $($findings.Count) issue(s):`n" -ForegroundColor Yellow
-
+    Write-Host "`nFound $($findings.Count) issue(s):" -ForegroundColor Yellow
     $findings | Sort-Object Severity, File, Line | Format-Table -AutoSize -Wrap
 
-    # Summary
     $critical = ($findings | Where-Object { $_.Severity -eq "CRITICAL" }).Count
     $high     = ($findings | Where-Object { $_.Severity -eq "HIGH" }).Count
-    Write-Host "`nSummary: CRITICAL=$critical  HIGH=$high" -ForegroundColor Cyan
+    Write-Host "Summary: CRITICAL=$critical  HIGH=$high" -ForegroundColor Cyan
 }

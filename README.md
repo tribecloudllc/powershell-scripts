@@ -1,4 +1,4 @@
-# githubsec.ps1
+# Test-GitHubActionsWorkflowSecurity.ps1
 
 PowerShell script that scans GitHub Actions workflow files for common security misconfigurations and generates a self-contained HTML report.
 
@@ -23,10 +23,10 @@ PowerShell script that scans GitHub Actions workflow files for common security m
 
 ```powershell
 # Basic — report saved as workflow-security-report.html in current directory
-.\githubsec-html.ps1 -RepoPath "C:\repos\my-repo"
+.\Test-GitHubActionsWorkflowSecurity.ps1 -RepoPath "C:\repos\my-repo"
 
 # Custom output path
-.\githubsec-html.ps1 -RepoPath "C:\repos\my-repo" -OutputFile "C:\reports\my-repo-security.html"
+.\Test-GitHubActionsWorkflowSecurity.ps1 -RepoPath "C:\repos\my-repo" -OutputFile "C:\reports\my-repo-security.html"
 ```
 
 The report opens automatically in the default browser after generation.
@@ -68,6 +68,7 @@ Status banner shows **ACTION REQUIRED** in red. Each finding includes a recommen
 ## Remediation Quick Reference
 
 **Missing permissions block**
+
 ```yaml
 permissions: read-all  # top-level default
 jobs:
@@ -78,6 +79,7 @@ jobs:
 ```
 
 **Expression in run: block**
+
 ```yaml
 # Before (unsafe)
 - run: echo "${{ github.event.pull_request.title }}"
@@ -89,6 +91,7 @@ jobs:
 ```
 
 **Action not pinned to SHA**
+
 ```yaml
 # Before
 uses: actions/checkout@v4
@@ -98,6 +101,7 @@ uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 ```
 
 **Committed secret**
+
 ```yaml
 # Before
 env:
@@ -107,6 +111,7 @@ env:
 env:
   TOKEN: ${{ secrets.MY_TOKEN }}
 ```
+
 > After removing a secret from the workflow file, purge it from git history using [`git filter-repo`](https://github.com/newren/git-filter-repo) and rotate/revoke the credential immediately.
 
 ## License

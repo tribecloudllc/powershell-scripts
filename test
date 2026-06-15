@@ -1,0 +1,948 @@
+{
+    "settings_metadata":  [
+                              {
+                                  "name":  "agent_monitoring",
+                                  "description":  "This beta enables monitoring of any Generative AI app or agent deployed outside of Databricks OR on Databricks using MLflow 3.0. It provides developers with tools to track both performance metrics (latency, request volume, errors) and quality metrics (accuracy, correctness, compliance), allowing them to detect drift or regressions via LLM-based evaluations on production traffic. Developers can also deep dive into individual requests for debugging and improvement purposes, and export real-world logs into evaluation sets to drive continuous enhancements of their Generative AI applications.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Production Monitoring for MLflow"
+                              },
+                              {
+                                  "name":  "agents_obo",
+                                  "description":  "This feature enables on-behalf-of-user authentication for generative AI agents deployed to Model Serving via Mosaic AI Agent Framework. When you deploy an agent to Model Serving that performs on-behalf of end user access using Mosaic AI agent framework, the agent will be able to access Databricks resources using the identity of the agent invoker.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Agent Framework: On-Behalf-Of-User Authorization"
+                              },
+                              {
+                                  "name":  "ai_classify",
+                                  "description":  "The ai_classify() function enables you to classify input text directly in SQL using state-of-the-art generative AI models provided by Databricks Foundation Model APIs. By supplying a set of labels, you can declaratively assign categories to unstructured text.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "AI Classify"
+                              },
+                              {
+                                  "name":  "ai_extract",
+                                  "description":  "The ai_extract() function enables you to extract structured entities from unstructured text directly in SQL using state-of-the-art generative AI models provided by Databricks Foundation Model APIs. After specifying a target schema, you can declaratively transform raw text into structured outputs.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "AI Extract"
+                              },
+                              {
+                                  "name":  "ai_parse_document",
+                                  "description":  "The ai_parse_document() function invokes a state-of-the-art generative AI model from Databricks Foundation Model APIs to extract structured content from unstructured documents.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "AI ParseDocument"
+                              },
+                              {
+                                  "name":  "ai_prep_search",
+                                  "description":  "The ai_prep_search() function enables you to transform the output of ai_parse_document into a format optimized for vector search and information retrieval systems.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "AI Prep Search"
+                              },
+                              {
+                                  "name":  "alerts_v2",
+                                  "description":  "The next generation of Databricks SQL Alerts - with a revamped user interface, a simplified data model, evaluation history, and improved API support.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "SQL Alerts V2"
+                              },
+                              {
+                                  "name":  "alertv2_job_task",
+                                  "description":  "User can select Alert as a primary job task type.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Alert Job Task"
+                              },
+                              {
+                                  "name":  "allowedAppsUserApiScopes",
+                                  "description":  "Restrict which OAuth scopes app developers can request when acting on behalf of users. Specify a list of allowed scopes, or use \"*\" to allow all supported scopes. An empty list effectively disables user authorization for apps.",
+                                  "type":  "{\"allowed_scopes\": [\"sample_string\"]}",
+                                  "docs_link":  ""
+                              },
+                              {
+                                  "name":  "anomaly_detection_ws",
+                                  "description":  "This feature allows you to be alerted on data quality anomalies (e.g. freshness, completeness) for your tables. By learning the behaviors of each table and intelligently setting thresholds, the feature allows you to easily alert on data quality incidents across all your important tables. Currently, the feature is limited to freshness monitoring and is a library you call in a notebook, but will soon also include completeness (row count) monitoring. The table health information will also be published in Unity Catalog so data consumers know if a table has an ongoing data quality incident.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Data quality monitoring with anomaly detection (workspace level)"
+                              },
+                              {
+                                  "name":  "apps_otel",
+                                  "description":  "Enables observability features for Databricks Apps.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "OpenTelemetry for Databricks Apps"
+                              },
+                              {
+                                  "name":  "apps_v2_ui",
+                                  "description":  "Enables the standalone Databricks Apps V2 UI experience with dedicated app management pages.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Databricks Apps V2"
+                              },
+                              {
+                                  "name":  "auth_exp_token_notif",
+                                  "description":  "Enable automatic email notifications for users with expiring personal access tokens. When enabled, this feature proactively monitors access tokens in your workspace and sends email notifications to users before their tokens expire, helping prevent service disruptions and authentication failures.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Expiring personal access token notifications"
+                              },
+                              {
+                                  "name":  "authoring_context",
+                                  "description":  "Similar to opening a folder in an IDE, you can now set the scope of the notebook and file editor to a specific Git folder. When the scope is set to a Git folder, the side panel displays that folderâs contents as an expandable tree, and the editorâs tab bar displays only the files, notebooks, and queries opened while the scope is set to that folder.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Focused notebook \u0026 file editor for Git folders"
+                              },
+                              {
+                                  "name":  "auto_cdf",
+                                  "description":  "This preview enables a new Change Data Feed (CDF) mode that now allows Iceberg writers to write to the table. This new CDF can improve write-time performance, given that it computes the CDF at query time. It requires row tracking, but does not require (`delta.enableChangeDataFeed`) to be enabled on the table. It is available only for DBR version 17.3 and above, on DBR (Spark + DBSQL).",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Auto-CDF (Change Data Feed)"
+                              },
+                              {
+                                  "name":  "cld_to_volumes",
+                                  "description":  "Allows users to configure a classic compute clusterâs cluster log delivery to a UC volume path through UI or API. Cluster logs for the Spark driver node, worker nodes and events will be delivered to the configured volume path.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Cluster Log Delivery to UC Volumes"
+                              },
+                              {
+                                  "name":  "cloudfiles_excel",
+                                  "description":  "Read Excel files using Spark batch and streaming APIs including Auto Loader, read_files, spark.read and COPY INTO. Available in DBR17.1+",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Excel File Format Support"
+                              },
+                              {
+                                  "name":  "collaboration_platform_connectivity",
+                                  "description":  "Controls which external collaboration platforms (Slack and/or Microsoft Teams) can connect to this workspace. Defaults to ALLOW_ALL.",
+                                  "type":  "{\"connectivity\": \"CONNECTIVITY_UNSPECIFIED\"}",
+                                  "docs_link":  ""
+                              },
+                              {
+                                  "name":  "collaboration_platform_message_visibility",
+                                  "description":  "When enabled, users can choose whether responses from the Databricks app in Slack or Microsoft Teams are visible to the channel. When disabled, all responses are forced to be private to the requesting user.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "docs_link":  ""
+                              },
+                              {
+                                  "name":  "confluence_connector",
+                                  "description":  "Ingest from Confluence with a simple and efficient connector",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Lakeflow Connect for Confluence"
+                              },
+                              {
+                                  "name":  "conn_cdc_col_select",
+                                  "description":  "Enable column selection for Lakeflow Connects SQL Server connector. Available only via API.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Lakeflow Connect Column Selection for Database Sources"
+                              },
+                              {
+                                  "name":  "custom_apps_preview",
+                                  "description":  "Databricks Apps is the fastest way for data developers to build secure and governed apps for internal use.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Databricks Apps"
+                              },
+                              {
+                                  "name":  "custom_llm_serving",
+                                  "description":  "Enable serving custom LLMs in model serving endpoints.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Custom LLM Serving for Databricks Model Serving"
+                              },
+                              {
+                                  "name":  "customerApprovedWSLoginExpirationTime",
+                                  "description":  "Enable and disable access to your workspace to Databricks personnel. You can control when and how long Databricks can access your workspace for support purposes. If you have disabled access, no Databricks personnel will be able to gain access to your workspace. Accepted string values are - \u0027\u0027, \u0027indefinite\u0027 or valid ISO date",
+                                  "type":  "{\"string_val\": {\"value\": \"string\"}}",
+                                  "docs_link":  ""
+                              },
+                              {
+                                  "name":  "dabs_templates",
+                                  "description":  "This preview enables admins to set up custom templates that users can use to get started with asset bundles directly in the Workspace. It allows CI/CD stakeholders to enforce best practices and standardized formats, helping users skip repetitive setup and launch projects faster.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Custom bundle templates in the workspace"
+                              },
+                              {
+                                  "name":  "dabs_visual_edit",
+                                  "description":  "This preview enables users to edit resources (Jobs, Pipelines) in the UI and have YAML automatically sync when using Declarative Automation Bundles in the Workspace. Users can set up their resources for CI/CD without explicit knowledge of asset bundles.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Visual authoring: UI \u003c\u003e YAML Sync for DABs in the Workspace"
+                              },
+                              {
+                                  "name":  "dashboard_authoring_agent",
+                                  "description":  "Enables Genie Code to create and edit AI/BI Dashboards by delegating complex tasks like visualization generation, filter configuration, and layout organization",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Genie Code for dashboard authoring"
+                              },
+                              {
+                                  "name":  "databricks_one",
+                                  "description":  "Enables the Databricks One business user experience for Consumer entitled users in the Workspace.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Databricks One"
+                              },
+                              {
+                                  "name":  "dataclassificationws",
+                                  "description":  "This feature allows you to classify and review sensitive data across your entire catalog, powered by agents.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Data Classification"
+                              },
+                              {
+                                  "name":  "datascience_agent",
+                                  "description":  "Genie Code can automate multiple steps. From a single prompt, it can retrieve relevant assets, generate and run code, fix errors automatically, and visualize results. It can sample data and cell outputs to provide better results.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Genie Code"
+                              },
+                              {
+                                  "name":  "dbsql_5xl_pro",
+                                  "description":  "Enable 5X-Large endpoint size for Pro SQL warehouses",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "5XL PRO SQL Warehouse"
+                              },
+                              {
+                                  "name":  "dbsql_5xl_serverless",
+                                  "description":  "Enable 5X-Large endpoint size for Serverless SQL Warehouses",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "5XL Serverless SQL Warehouse"
+                              },
+                              {
+                                  "name":  "dbt_cloud_task",
+                                  "description":  "The dbt platform task lets you run your dbt platform jobs as part of existing databricks workflows",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "dbt platform task"
+                              },
+                              {
+                                  "name":  "dc_custom_tags",
+                                  "description":  "Automatically detect custom/business-specific tags beyond Data Classificationâs supported set.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Extend Data Classification with Custom Classifiers"
+                              },
+                              {
+                                  "name":  "default_base_envs",
+                                  "description":  "Workspace base environments ensure that users automatically have a predefined environment version and set of Python packages available in their notebooks.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Workspace base environments for serverless compute"
+                              },
+                              {
+                                  "name":  "default_wh_setting",
+                                  "description":  "The default warehouse feature allows Databricks workspace admins to define a default SQL warehouse that is pre-selected for users across SQL authoring surfaces, including Catalog Explorer, SQL Editor, Dashboards, Alerts, and Genie. Users can optionally override this default to set a customer default warehouse for themselves.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Default warehouse setting"
+                              },
+                              {
+                                  "name":  "designer",
+                                  "description":  "Allows users to use Lakeflow Designer, a low-code, fully governed, AI-native tool for data transformations.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Lakeflow Designer"
+                              },
+                              {
+                                  "name":  "direct_cdc_connector",
+                                  "description":  "Ingest from several databases instances for database connectors like SQL Server, Postgres, Oracle using Direct Cdc Managed Ingestion Pipeline.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "LakeFlow Connect for Direct Cdc Managed Ingestion Pipeline"
+                              },
+                              {
+                                  "name":  "disable_legacy_access",
+                                  "description":  "\u0027Disabling legacy access\u0027 has the following impacts: 1. Disables direct access to Hive Metastores from the workspace (access through Hive Metastore federation is unaffected). 2. Disables fallback mode on external location access from the workspace. 3. Disables Databricks Runtime versions prior to 13.3LTS. Important: this setting cannot be enabled while the workspace default catalog is set to a legacy catalog (hive_metastore or spark_catalog). Change the default catalog to a Unity Catalog catalog first.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "docs_link":  "https://learn.microsoft.com/en-us/azure/databricks/data-governance/unity-catalog/disable-hms"
+                              },
+                              {
+                                  "name":  "disable_legacy_dbfs",
+                                  "description":  "Disabling legacy DBFS has the following two implications: 1. Access to DBFS root and DBFS mounts is disallowed (as well as the creation of new mounts). 2. Disables Databricks Runtime versions prior to 13.3LTS. When the setting is off, all DBFS functionality is enabled and no restrictions are imposed on Databricks Runtime versions. This setting can take up to 20 minutes to take effect and requires a manual restart of all-purpose compute clusters and SQL warehouses.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "docs_link":  "https://learn.microsoft.com/en-us/azure/databricks/dbfs/disable-dbfs-root-mounts"
+                              },
+                              {
+                                  "name":  "discover_page",
+                                  "description":  "Enables the Discover Page in the left nav and the search empty state for this workspace. The Discover Page is a curated, user-friendly interface that helps users find and understand their organizations most important UC and workspace assets. Note: The account-level Domain and Discover flag must also be enabled for the Discover Page to appear in the local workspace.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Discover Page"
+                              },
+                              {
+                                  "name":  "ds_v2_join_pushdown",
+                                  "description":  "Enables automatic pushdown of join operations to remote databases when executing federated queries through Lakehouse Federation. When enabled, Databricks pushes inner, left, and right joins between tables from the same JDBC datasource (Oracle, PostgreSQL, MySQL, SQL Server, Teradata) directly to the remote database engine, reducing data transfer and improving query performance. This feature is available on Databricks Runtime 17.2 and above.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Join Pushdown for Federated Queries"
+                              },
+                              {
+                                  "name":  "dynamics_connector",
+                                  "description":  "Ingest Dynamics 365 data via Dataverse with a simple and efficient connector. Available via API or UI.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Lakeflow Connect for Dynamics 365"
+                              },
+                              {
+                                  "name":  "embedded_genie",
+                                  "description":  "This feature allows Genie space authors to embed Genie spaces into external applications. Users in the external application must have access to Databricks and the Genie space.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Embed Genie as an iframe"
+                              },
+                              {
+                                  "name":  "enable_dcs_vnext",
+                                  "description":  "Enables DCS-vNext support, which uses the LXC container and Dataplane Runtime daemon and Sandbox API to run customer containers.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "DCS-vNext"
+                              },
+                              {
+                                  "name":  "enable_dlmv_aibi",
+                                  "description":  "Create Metric Views that are local to an Ai/BI dashboard. These Dashboard Local Metric Views are created as datasets.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Enable Dashboard Local Metric Views in AI/BI Dashboards"
+                              },
+                              {
+                                  "name":  "enable_git_apps",
+                                  "description":  "Deploy apps directly from Git into the Apps Runtime for better governance and production-quality control.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Databricks Apps - Install Apps from Git"
+                              },
+                              {
+                                  "name":  "enable_github_webhook_app_deployments",
+                                  "description":  "Automatically deploy apps when changes are pushed to a connected GitHub repository. Push events received via GitHub webhooks trigger app deployment workflows, removing the need for manual redeployment after code changes.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Databricks Apps - GitHub Webhook-Triggered Deployments"
+                              },
+                              {
+                                  "name":  "enable_lakeview_tags",
+                                  "description":  "Enable tags for new workspace scoped assets including lakeview dashboards and genie spaces. Users with edit level or above permissions can add and modify tags on the asset",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Tagging support for workspace scoped assets"
+                              },
+                              {
+                                  "name":  "enable_obo_user_apps",
+                                  "description":  "Allows the Databricks App to act on behalf of the app user. This enhancement allows the app to honor the user\u0027s access permissions defined in Unity Catalog and in Databricks Workspace.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA_SOON",
+                                  "display_name":  "Databricks Apps - On-Behalf-Of User Authorization"
+                              },
+                              {
+                                  "name":  "enable_vscaling_apps",
+                                  "description":  "Allows app developers to select predefined compute sizes for Databricks Apps. This feature enables building apps that require more CPU or memory to handle larger workloads.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Databricks Apps â Configure App Compute Size"
+                              },
+                              {
+                                  "name":  "enforceGitAppDeployments",
+                                  "description":  "When enabled, apps in this workspace can only be deployed from Git.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "docs_link":  ""
+                              },
+                              {
+                                  "name":  "excel_connector_flip",
+                                  "description":  "Enable the Databricks Add-In for Excel to import data from Databricks into Excel",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Excel Add-In"
+                              },
+                              {
+                                  "name":  "exp_sp_token_notif",
+                                  "description":  "Enable automatic email notifications for service principal owned expiring personal access tokens. When enabled, this feature proactively monitors service principal access tokens in your workspace and sends email notifications to workspace admins before their tokens expire, helping prevent service disruptions and authentication failures.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Expiring service principal access token notifications"
+                              },
+                              {
+                                  "name":  "external_access_to_managed_delta",
+                                  "description":  "External Access to Unity Catalog Managed Delta Tables lets external engines like Apache Spark, Trino, and other Delta clients securely create, read and write Unity Catalog-managed Delta tables using Databricks open APIs and short-lived, UC-governed credentials.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "External Access to Unity Catalog Managed Delta Table"
+                              },
+                              {
+                                  "name":  "external_engine_fgac",
+                                  "description":  "This feature enables external clients to securely access tables in Databricks via UC Open APIs with attribute-based access controls (ABAC), row filters, and column masks enforced.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Cross-engine ABAC"
+                              },
+                              {
+                                  "name":  "fabric_connector",
+                                  "description":  "Query data directly from Azure OneLake storage using Unity Catalog federation",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Microsoft OneLake Federation"
+                              },
+                              {
+                                  "name":  "filebrowser_tree",
+                                  "description":  "The file browser in the editorâs side panel now supports a tree view, allowing you to expand multiple folders at once and quickly navigate between files across directories without backtracking.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Tree view of the side panel file browser"
+                              },
+                              {
+                                  "name":  "fmapi_qwen3_instruct",
+                                  "description":  "This preview enables an extended family of models (e.g. Qwen) in model serving.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Enable Extended Models"
+                              },
+                              {
+                                  "name":  "fstore_decl_fw",
+                                  "description":  "Opt in to the new declarative framework for defining batch features in Databricks Feature Store. You can still use the legacy feature table pipelines alongside the new framework. Note: This preview currently supports batch features only; streaming features will be available in a separate preview.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Feature Store Declarative Framework (Batch)"
+                              },
+                              {
+                                  "name":  "full_screen_genie_code",
+                                  "description":  "The \"Full Page\" mode and toggle of Genie Code. When enabled, customers have an option to open Genie Code in a Full Page UI with assets that can be opened in soft tabs. ",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Full Page Genie Code"
+                              },
+                              {
+                                  "name":  "full_text_search_index",
+                                  "description":  "Use the CREATE SEARCH INDEX SQL statement to create full-text search indexes on text columns of UC managed Delta Lake or Iceberg tables. The index accelerates SQL queries with selective, substring and word matching WHERE predicates.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "SQL: Full-Text Search Index for UC managed tables"
+                              },
+                              {
+                                  "name":  "gdrive_connector",
+                                  "description":  "Ingest from Google Drive with a simple and efficient connector. **Requires DBR 17.3+**",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Google Drive"
+                              },
+                              {
+                                  "name":  "generic_lfc",
+                                  "description":  "This feature enables a wide range of OSS connectors built on the Python Data Source API and SDP, covering sources beyond managed ingestion and enabling users to build custom connectors.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect Community Connectors"
+                              },
+                              {
+                                  "name":  "genie_bi_migration",
+                                  "description":  "This preview allows users to import data models \u0026 dashboards from external BI tools as AI/BI Metric Views and Dashboards via Genie Code",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Import from External BI to AI/BI"
+                              },
+                              {
+                                  "name":  "genie_chat_sharing",
+                                  "description":  "Share Genie space chats with space managers by default, and allow users to share their chats with others in the Databricks account.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Genie Chat Sharing"
+                              },
+                              {
+                                  "name":  "genie_deep_research",
+                                  "description":  "The Genie Agent provides deeper data insights and answers complex business questions using multi-step reasoning and hypothesis investigation.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Genie Agent"
+                              },
+                              {
+                                  "name":  "genie_inspect_answer",
+                                  "description":  "Advanced technique that reviews initial SQL answers and makes improvements in standard Genie",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Genie Answer Inspection"
+                              },
+                              {
+                                  "name":  "genie_unstructured_files_in_deepresearch_mode",
+                                  "description":  "Enables users to upload local PDFs as conversation-level context in Agent mode",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Upload Local PDFs to Genie Spaces"
+                              },
+                              {
+                                  "name":  "github_connector",
+                                  "description":  "Ingest from Github with a simple and efficient connector.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Github"
+                              },
+                              {
+                                  "name":  "google_ads_connector",
+                                  "description":  "Ingest from Google Ads with a simple and efficient connector.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Google Ads"
+                              },
+                              {
+                                  "name":  "hspot_mktg_connector",
+                                  "description":  "Ingest from HubSpot with a simple and efficient connector.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Lakeflow Connect for HubSpot"
+                              },
+                              {
+                                  "name":  "icebergv3",
+                                  "description":  "Iceberg V3 adds performance and feature capabilities to Delta UniForm and Managed Iceberg tables. These features include deletion vectors for efficient row-level deletes, row lineage for incremental processing, and the Variant data type for semi-structured data.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Iceberg V3"
+                              },
+                              {
+                                  "name":  "ip_functions",
+                                  "description":  "Ip Functions feature preview enables built-in functions for working with IP addresses and CIDR blocks. Requires DBR 18.2 or later.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Ip Functions"
+                              },
+                              {
+                                  "name":  "jdbc_connector",
+                                  "description":  "This feature enables users to connect to data sources using a custom JDBC driver through the Spark Data Source API. The new UC Connection of type JDBC, runs a user-provided JDBC driver powered by Lakeguard isolation on UC-supported compute: serverless, standard, and dedicated clusters with DBR 18.1 or higher.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Custom JDBC on UC Compute"
+                              },
+                              {
+                                  "name":  "jira_connector",
+                                  "description":  "Ingest Jira data with a simple and efficient connector. Available via API for both Jira Cloud and on premise instances.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Jira"
+                              },
+                              {
+                                  "name":  "jobs_disabled_tasks",
+                                  "description":  "Be able to disable tasks in Lakeflow Jobs. By disabling a task, Lakeflow Jobs will not run that task in subsequent runs until you re-enable it.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Disabled tasks in Lakeflow Jobs"
+                              },
+                              {
+                                  "name":  "jobs_serverless_managed_base_environments",
+                                  "description":  "Enable serverless workspace base environment support for Notebook, Python Script, and Wheel tasks in Jobs",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Serverless workspace base environment support in Jobs"
+                              },
+                              {
+                                  "name":  "knowledge_assistant",
+                                  "description":  "Turn your docs into an expert AI chatbot",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Knowledge Assistant"
+                              },
+                              {
+                                  "name":  "lakebase_cdf",
+                                  "description":  "Lakebase-native export of the Postgres Change Data Feed to Delta tables. Supports scale to zero with Lakebase Autoscaling.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Lakebase CDF"
+                              },
+                              {
+                                  "name":  "lakeflow_new_jobs_ui",
+                                  "description":  "The new Lakeflow Jobs UI features a streamlined layout, redesigned task palette, and a cleaner empty state canvas for a faster, more focused experience. To enable it, open any job and switch on the toggle on the top of the page, you can opt-out at any time",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Lakeflow Jobs UI"
+                              },
+                              {
+                                  "name":  "lakeflow_qbc",
+                                  "description":  "Enable Lakeflow Connect query based connectors to ingest from Lakehouse federation sources.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Lakeflow Connect Query Based Connectors"
+                              },
+                              {
+                                  "name":  "lakeflow_runs_list",
+                                  "description":  "You can now view all of your Jobs and Pipeline executions in the updated Runs list. Track all of your pipeline executions in one place and filter by status, time, run-as user, and error codes in real time. Spot trends using the visualization and summary of the current top five error codes.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Unified Runs List"
+                              },
+                              {
+                                  "name":  "lakehouse_replay",
+                                  "description":  "Databricks automatically replays readâonly serverless workloads in a safe shadow environment so regressions are detected and fixed before they impact production workloads.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakehouse Replay"
+                              },
+                              {
+                                  "name":  "lf_pipelines_auth",
+                                  "description":  "Purpose-built IDE for declarative data pipelines. Designed to support everything you need for building pipelines in one place: code-first authoring, folder-based organization, selective execution, data previews, and pipeline graphs. Integrated with the Databricks Platform, supporting version control, code reviews, and scheduling.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Lakeflow Pipelines Editor"
+                              },
+                              {
+                                  "name":  "llm_proxy_partner_powered",
+                                  "description":  "Determines if partner powered models are enabled or not. This setting is available at both account and workspace level",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "docs_link":  "https://learn.microsoft.com/en-us/azure/databricks/databricks-ai/partner-powered#enable-or-disable-admin-features"
+                              },
+                              {
+                                  "name":  "managed_mcp_servers",
+                                  "description":  "Databricks managed MCP (Model Context Protocol) servers enable your AI agents to access data and tools governed in Databricks, with data governance and permissions enforced out of the box",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Managed MCP Servers"
+                              },
+                              {
+                                  "name":  "meta_ads_connector",
+                                  "description":  "Ingest Meta Ads data with a simple and efficient connector.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Meta Ads"
+                              },
+                              {
+                                  "name":  "mlflow_logged_models",
+                                  "description":  "Deployment jobs allow you to manage the model lifecycle by automating tasks like evaluation, approval, and deployment whenever a new model version is created, integrating seamlessly with Unity Catalog models and Databricks Jobs. These jobs simplify the setup of model deployment pipelines, incorporate human-in-the-loop approvals, and provide governed workflows with clear visibility into progress and historical context for each model version.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Models in Unity Catalog: Deployment Jobs"
+                              },
+                              {
+                                  "name":  "mst",
+                                  "description":  "Run multiple SQL statements across multiple Delta and Iceberg tables as a single, atomic transaction with full ACID guarantees. All changes succeed or roll back together, ensuring data consistency across your operations.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Transactions"
+                              },
+                              {
+                                  "name":  "multiple_git_creds",
+                                  "description":  "Ability to create and use multiple Git credentials per user for Git folders",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Multiple Git Credentials"
+                              },
+                              {
+                                  "name":  "new_policy_form",
+                                  "description":  "This preview enables a new and improved user interface for creating, editing and viewing compute policies. Non-admin users are now able to view compute policies they are assigned to.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "New compute policy form"
+                              },
+                              {
+                                  "name":  "oltp_database",
+                                  "description":  "A new Postgres compute type built for low-latency reads and writes. Autoscaling offers autoscaling compute, branching, instance restore, and more, while Provisioned provides high availability (HA) and integration with Databricks Apps.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Lakebase Postgres"
+                              },
+                              {
+                                  "name":  "one_chat",
+                                  "description":  "Chat with Databricks agents and third-party data sources from a single conversation in Genie, governed by Unity Catalog.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "New chat experience in Genie"
+                              },
+                              {
+                                  "name":  "otel_collector",
+                                  "description":  "Enables ingestion of OpenTelemetry data into Unity Catalog managed Delta tables for MLflow Tracing.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "OpenTelemetry on Databricks"
+                              },
+                              {
+                                  "name":  "otel_model_serving",
+                                  "description":  "OpenTelemetry log/span/metric persistence for model serving endpoints.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "OpenTelemetry for Databricks Model Serving"
+                              },
+                              {
+                                  "name":  "outlook_connector",
+                                  "description":  "Ingest from Outlook with a simple and efficient connector.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Outlook"
+                              },
+                              {
+                                  "name":  "pendo_connector",
+                                  "description":  "Ingest from Pendo using a simple and efficient connector",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Pendo"
+                              },
+                              {
+                                  "name":  "pipeline_parameters",
+                                  "description":  "Write extensible, maintainable pipeline code by parameterizing Spark Declarative Pipelines.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Spark Declarative Pipeline Parameters"
+                              },
+                              {
+                                  "name":  "pkg_repo_api_cluster",
+                                  "description":  "Apply the default Python package repositories in clusters created via API. The changes of configurations apply to newly created clusters and existing clusters upon restart.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA_SOON",
+                                  "display_name":  "Default Python package repositories in clusters created via API"
+                              },
+                              {
+                                  "name":  "pkg_repo_dlt",
+                                  "description":  "Default Python package repositories in serverless and classic Spark Declarative Pipelines (SDP). The changes of configurations apply to new pipeline runs.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA_SOON",
+                                  "display_name":  "Default Python package repositories in Spark Declarative Pipelines"
+                              },
+                              {
+                                  "name":  "pkg_repo_ui_cluster",
+                                  "description":  "Apply the default Python package repositories in clusters created via UI. The changes of configurations apply to newly created clusters and existing clusters upon restart.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA_SOON",
+                                  "display_name":  "Default Python package repositories in clusters created via UI"
+                              },
+                              {
+                                  "name":  "power_bi_task",
+                                  "description":  "The Power BI task type in Databricks Workflows allows users to keep Power BI semantic models up-to-date with source data in Unity Catalog. The task can sync table metadata, evolving schemas, and primary/foreign key relationships. It works for DirectQuery and Import mode at the table level, allowing you to define composite models.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Power BI task type"
+                              },
+                              {
+                                  "name":  "publish_to_fabric",
+                                  "description":  "Publish to Fabric enables customers to make Unity Catalog tables accessible as read-only mirrored tables in Microsoft Fabric. By publishing a UC catalog to Fabric, tables backed by ADLS Gen2 or OneLake storage appear as mirrored items in a Fabric workspace.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Publish to Fabric"
+                              },
+                              {
+                                  "name":  "query_perf_insights",
+                                  "description":  "When queries run, Databricks might return insights that identify opportunities to improve performance. ",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Query performance insights"
+                              },
+                              {
+                                  "name":  "remote_ds_writes",
+                                  "description":  "Enables the write support on serverless compute for the remote data sources. The feature works only for writes through the DataFrame API. This feature doesnt include Lakehouse Federation writes.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Remote data sources write support on serverless compute"
+                              },
+                              {
+                                  "name":  "remote_query_tvf",
+                                  "description":  "Function allows users to execute query in remote engine syntax using credentials from a Unity Catalog connection. Function is available on Databricks Runtime 17.3 or above.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Enables remote query table-valued function (remote_query)."
+                              },
+                              {
+                                  "name":  "scoped_pat",
+                                  "description":  "Scoped personal access tokens (Scoped PATs) limit which APIs each token can call through specific scopes that define its permissions. The feature helps enforce least-privilege access and reduces risk if a token is compromised. You can configure scopes individually on each token and update them at any time to match the token\u0027s intended useâsuch as connecting BI tools, or running automation scripts.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Scoped personal access tokens"
+                              },
+                              {
+                                  "name":  "serverless_dlt",
+                                  "description":  "Enable serverless compute for Delta Live Tables in this workspace.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Serverless Compute for Delta Live Tables"
+                              },
+                              {
+                                  "name":  "serverless_jar_jobs",
+                                  "description":  "Deploy Scala and Java jobs as Jars on serverless compute with faster startup, auto-scaling, and no cluster management",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Serverless JARs"
+                              },
+                              {
+                                  "name":  "serverless_job_nb",
+                                  "description":  "Enable serverless compute for notebooks and workflows in this workspace.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Serverless Compute for Workflows and Notebooks"
+                              },
+                              {
+                                  "name":  "serverless_workload_observability",
+                                  "description":  "Improved Lakeflow Performance Observability includes aggregates of query metrics and insights on the workload level, support for timeline view for single task runs and other improvements.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Improved Lakeflow Performance Observability"
+                              },
+                              {
+                                  "name":  "sfdc_file_sharing",
+                                  "description":  "Query data from Salesforce Data Cloud using the zero-copy direct file access approach.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Salesforce Data Cloud file sharing federation"
+                              },
+                              {
+                                  "name":  "sftp_connector",
+                                  "description":  "Ingest files from SFTP server using Auto Loader. Requires DBR 17.3+.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "SFTP Connector"
+                              },
+                              {
+                                  "name":  "sharepoint_connector",
+                                  "description":  "Ingest Sharepoint data with a simple and efficient connector. Available via API.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Sharepoint"
+                              },
+                              {
+                                  "name":  "slack_ailogs_connector",
+                                  "description":  "Ingest Slack Access and Integration Logs with a simple and efficient connector",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Slack Access and Integration Logs"
+                              },
+                              {
+                                  "name":  "smartsheet_connector",
+                                  "description":  "Ingest from Smartsheet with a simple and efficient connector.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Smartsheet"
+                              },
+                              {
+                                  "name":  "supervisor_agent",
+                                  "description":  "Agent Bricks Supervisor Agent lets you combine Genie spaces, other agents, and tools together in a powerful agent system that can answer questions and take actions.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Supervisor Agent"
+                              },
+                              {
+                                  "name":  "supervisor_api",
+                                  "description":  "The Supervisor API lets you build custom agents on Databricks with a single request. You specify the model, tools, and instructions, and Databricks runs the agent loop for you by calling the model, executing tools, and producing the final response, with support for background mode for long-running tasks.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Supervisor API"
+                              },
+                              {
+                                  "name":  "system_managed_job",
+                                  "description":  "Materialized View (MV) and Streaming Table (ST) schedules now surface as a system-managed refresh job, providing improved observability and configurability. Users can view the refresh job, configure schedules and trigger frequency, set notifications for refresh runs, and choose between standard or performance-optimized execution modes directly in the Catalog Explorer.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "System-Managed Job for Materialized Views \u0026 Streaming Tables"
+                              },
+                              {
+                                  "name":  "tabular_subscription_attachments",
+                                  "description":  "Enables support for attaching widget data to dashboard subscription email notifications. Widget data can be attached as CSV, TSV, or Excel.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Widget Data Attachments for Dashboard Subscriptions"
+                              },
+                              {
+                                  "name":  "third_party_agent_connectors",
+                                  "description":  "Enables Databricks AI features to use Databricks-managed connectors to popular third party providers.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Third Party Connectors for Agents"
+                              },
+                              {
+                                  "name":  "tiktok_ads_connector",
+                                  "description":  "Ingest from TikTok Ads with a simple and efficient connector.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for TikTok Ads"
+                              },
+                              {
+                                  "name":  "tiles_platform",
+                                  "description":  "Mosaic AI Agent Bricks enables you to build and optimize domain-specific agent systems. Simply select your problem, and Agent Bricks will run optimizations to improve quality and cost, generating a deployable endpoint on Databricks. Additionally, Agent Bricks provides automated evaluation and recommendations to refine your agent systems performance. Enabling this flag will also enable ai_parse_document function; however, for the regions where Agent Bricks is not available, you will only get access to ai_parse_document without Agent Bricks enabled.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Mosaic AI Agent Bricks Preview"
+                              },
+                              {
+                                  "name":  "ucmr_prompt_registry",
+                                  "description":  "Managed MLflow Prompt Registry on Databricks is a powerful tool that streamlines prompt engineering and management in your Generative AI (GenAI) applications. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.  The Prompt Registry also enables you to optimize prompts through a native integration with DSPy, delivering higher quality while minimizing time spent on manual prompt engineering.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Managed MLflow Prompt Registry"
+                              },
+                              {
+                                  "name":  "variant_shredding",
+                                  "description":  "Variant shredding extracts commonly occurring fields in semi-structured data into separate columns during writes. This significantly improves read performance, but incurs some overhead on writes. Variant shredding is supported in DBR 17.2 and above.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Variant Shredding for Optimized Read Performance on Semi-Structured Data"
+                              },
+                              {
+                                  "name":  "vector_search_rerank",
+                                  "description":  "When enabled, users can improve similarity search quality from Vector Search by reranking retrieved results with a specialized model. No provisioning or endpoint management required. Use the familiar similarity search APIs, and get better quality results.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Vector Search Reranker"
+                              },
+                              {
+                                  "name":  "vectorsearch_highqps",
+                                  "description":  "Vector Search High QPS enables significantly higher real-time query throughput for Vector Search by scaling endpoint capacity via replication â so you can serve more concurrent search requests without standing up or loadâbalancing across multiple endpoints. In this phase, you manually increase QPS capacity by adjusting endpoint replication and monitor performance using available metrics; support for automatic scaling is planned for later releases.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "PUBLIC_PREVIEW",
+                                  "display_name":  "Vector Search High QPS"
+                              },
+                              {
+                                  "name":  "vs_autoeval",
+                                  "description":  "AI Search Quality Evaluation enables automatic search quality evaluation for AI Search indexes, using synthetic query generation and LLM-based relevance scoring to measure recall, precision, NDCG, and other retrieval metrics.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "AI Search: Quality Evaluation"
+                              },
+                              {
+                                  "name":  "vs_full_text",
+                                  "description":  "Users can create pure full-text indexes and run full-text search queries directly through the UI, Python SDK, or REST APIs. This bypasses ANN or vector search entirely and is especially valuable for use cases that require precise keyword matching.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "AI Search: Full-Text Search"
+                              },
+                              {
+                                  "name":  "wday_hcm_connector",
+                                  "description":  "Ingest from Workday HCM with a simple and efficient connector. To ingest from Workday RaaS, use the Workday Reports connector instead.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Workday HCM"
+                              },
+                              {
+                                  "name":  "wh_activity_details",
+                                  "description":  "Provides deeper visibility into SQL Warehouse usage by showing why a warehouse is running even when no queries are visible. The SQL Warehouse monitoring UI includes an activity details view in the running clusters chart, showing query execution and client-driven activity, such as open sessions or query fetching.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Warehouse Activity Details"
+                              },
+                              {
+                                  "name":  "wsfs_git_cli",
+                                  "description":  "You can now run Git CLI commands against Git folders in the Web Terminal and from notebooks. Previously, there was only support for Git operations via the UI.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Git CLI support for Git folders"
+                              },
+                              {
+                                  "name":  "zdesk_supt_connector",
+                                  "description":  "Ingest from Zendesk Support with a simple and efficient connector.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Lakeflow Connect for Zendesk Support"
+                              },
+                              {
+                                  "name":  "zerobus_ingest_core",
+                                  "description":  "Zerobus Ingest, part of Lakeflow Connect, is a robust API that allows you to efficiently push data into tables in a streaming, record-by-record, fashion, operating in a serverless multi-tenant environment to support a high volume of clients.",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "GA",
+                                  "display_name":  "Lakeflow Connect Zerobus Ingest"
+                              },
+                              {
+                                  "name":  "zoom_logs_connector",
+                                  "description":  "Ingest Zoom Logs with a simple and efficient connector",
+                                  "type":  "{\"boolean_val\": {\"value\": true}}",
+                                  "preview_phase":  "BETA",
+                                  "display_name":  "Lakeflow Connect for Zoom Logs"
+                              }
+                          ]
+}

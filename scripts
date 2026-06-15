@@ -1,0 +1,13 @@
+$headers = @{ Authorization = "Bearer $env:DATABRICKS_TOKEN" }
+
+Invoke-RestMethod -Method Get `
+  -Uri "$($env:DATABRICKS_HOST)/api/2.1/settings-metadata" `
+  -Headers $headers | ConvertTo-Json -Depth 10
+
+
+$resp = Invoke-RestMethod -Method Get `
+  -Uri "$($env:DATABRICKS_HOST)/api/2.1/settings-metadata" `
+  -Headers $headers
+
+$resp.settings | Where-Object { $_.description -match "SQL" -or $_.name -match "sql" } |
+  Select-Object name, type, description | Format-List

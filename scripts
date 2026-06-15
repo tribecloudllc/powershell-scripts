@@ -11,3 +11,26 @@ $resp = Invoke-RestMethod -Method Get `
 
 $resp.settings | Where-Object { $_.description -match "SQL" -or $_.name -match "sql" } |
   Select-Object name, type, description | Format-List
+
+
+# SQL Editor + AI/BI Dashboards results download.
+# This setting is NOT exposed via databricks_workspace_conf or the generic
+# settings-v2 API in this workspace (confirmed absent from
+# list-workspace-settings-metadata). It is only configurable through the
+# dedicated `databricks settings sql-results-download` endpoint, so we drive
+# it via the Databricks CLI here until the provider adds native support.
+resource "null_resource" "sql_results_download" {
+
+  triggers = {
+    enabled = tostring(coalesce(var.workspace_config.enable_sql_results_download, false))
+    host    = var.databricks_workspace_host
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["pwsh", "-Command"]
+    command     = <<-EOT
+      $env:DATABRICKS_HOST = "${var.databricks_workspace_host}"
+      databricks settings sql-results-download update --json '{\"allow_missing\": true, \"setting\": {\"boolean_val\": {\"value\": ${coalesce(var.workspace_config.enable_sql_results_download, false)}}}, \"field_mask\": \"boolean_val.value\"}'
+    EOT
+  }
+}

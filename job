@@ -1,0 +1,59 @@
+- name: Validate detected changes
+  run: |
+    # Get list of changed files in the branch.
+    #
+    # IMPORTANT: --no-renames disables git's rename detection. Without it,
+    # a rename emits as `R### <old_path> <new_path>` on a single line,
+    # and `cut -f2-` keeps BOTH paths. A file moved from
+    # src/models/gold/foo/... -> src/models/silver/foo/... would then
+    # still match `^src/models/gold/` (via the old_path prefix) and be
+    # falsely counted as a gold-directory change, triggering the
+    # "inside and outside of gold" guardrail on pure medallion-layer
+    # reclassifications.
+    #
+    # With --no-renames, a rename is emitted as a `D <old_path>` +
+    # `A <new_path>` pair. The `grep -v '^D'` drops the deletion, so
+    # only the new path is classified — which is the desired behavior.
+    changed_files=$(git diff --name-status --no-renames remotes/origin/main | grep -v '^D' | cut -f2-)
+    echo "----- Modified files -----------"
+    echo "$changed_files"
+
+    # Paths outside /src/models/gold/* that are ALLOWED to accompany a
+    # gold change without tripping the "inside and outside" guardrail.
+    # These are dbt config/target files that legitimately change together
+    # with model edits. Anchored with ^ so only true prefixes match
+    # (e.g. config/databricks/ is NOT exempted). Add patterns with |.
+    allowed_outside_gold='^(databricks/)'
+
+    # Ensure that changes are done only in a single directory of /src/models/gold/*
+    echo "----- Validating changes in /src/models/gold/* directories -----------"
+    gold_dirs_changed=$(grep -E '^src/models/gold/' <<< "$changed_files" | cut -d'/' -f4 | sort -u | grep -v '^$' || true)
+    if [ -z "$gold_dirs_changed" ]; then
+      num_gold_dirs_changed=0
+    else
+      num_gold_dirs_changed=$(echo "$gold_dirs_changed" | wc -l)
+    fi
+    echo "Number of /src/models/gold/* directories changed: $num_gold_dirs_changed"
+    echo "Changed /src/models/gold/* directories: $gold_dirs_changed"
+
+    if [ "$num_gold_dirs_changed" -gt 1 ]; then
+      echo "::error::Changes detected in multiple /src/models/gold/* directories: $gold_dirs_changed"
+      echo "::error::Currently only changes in a single /src/models/gold/* directory are allowed."
+      echo "::error::In case you need to merge changes in multiple areas, please split them into separate PRs or contact platform team for assistance."
+      exit 1
+    fi
+
+    # If changes are outside of /src/models/gold/*, ensure that no changes are done in /src/models/gold/*
+    # (excluding allowlisted paths).
+    echo "----- Validating changes outside of /src/models/gold/* directories -----------"
+    changes_outside_gold=$(grep -v -E '^src/models/gold/' <<< "$changed_files" | grep -v -E "$allowed_outside_gold" || true)
+    if [ -n "$changes_outside_gold" ] && [ "$num_gold_dirs_changed" -gt 0 ]; then
+      echo "::error::Changes detected both inside and outside of /src/models/gold/* directories."
+      echo "::error::Conflicting non-allowlisted paths:"
+      echo "$changes_outside_gold" | sed 's/^/::error::  - /'
+      echo "::error::Currently this is not allowed."
+      echo "::error::In case you need to merge changes in multiple areas, please split them into separate PRs or contact platform team for assistance."
+      exit 1
+    else
+      echo "No conflicting changes detected."
+    fi

@@ -1,0 +1,261 @@
+Answer for item 1 - Azure policies needed to be exempted for the initial Datadog + Azure integration
+
+Based on the PoC review, we should not request any broad tenant-wide Azure Policy exemptions.
+
+We split this into two areas:
+
+1. Datadog App Registration / Service Principal / RBAC
+2. Datadog Log Forwarder resources
+
+For App Registration / Service Principal / RBAC:
+No Azure Policy exemption is expected.
+
+This part should be done via Terraform/IaC:
+- create dedicated Datadog Integration App Registration / Service Principal via tf-common application module
+- grant baseline Microsoft Graph permissions only:
+  - Application.Read.All
+  - Directory.Read.All
+  - Group.Read.All
+  - Policy.Read.All
+  - User.Read.All
+- grant Monitoring Reader only on agreed subscription / management group scope
+- no tenant-wide RBAC assignment by default
+
+Datadog reference for baseline Microsoft Graph permissions:
+https://docs.datadoghq.com/integrations/guide/azure-graph-api-permissions/
+
+Microsoft RBAC least privilege reference:
+https://learn.microsoft.com/en-us/azure/role-based-access-control/best-practices
+
+The PoC App Registration had a wider permission set. We should not copy it to production by default.
+Additional permissions like Domain.Read.All, EntitlementManagement.Read.All, PrivilegedAccess* or RoleManagement* should be handled separately and only added if required by a concrete Datadog feature, e.g. Cloud Security / CIEM / Identity Risks.
+
+For Log Forwarder resources:
+Policy exemptions may be required, but only for the Datadog Log Forwarder control plane resources.
+
+PoC showed conflicts with the following policies:
+- Storage account infrastructure encryption is not enabled
+- Function apps should disable public network access
+- App Service apps should disable public network access
+- Container Apps environment should disable public network access
+
+These are the only policy areas currently identified for possible exemption.
+
+Datadog reference for Azure setup / Log Forwarder:
+https://docs.datadoghq.com/getting_started/integrations/azure/
+
+Datadog reference for Azure manual log forwarding:
+https://docs.datadoghq.com/logs/guide/azure-manual-log-forwarding/
+
+Decision:
+- no tenant-wide exemption
+- no blanket exemption for all Datadog resources
+- exemptions only if the Log Forwarder cannot be deployed in a compliant way
+- exemption scope should be the Log Forwarder Resource Group or specific resources only
+- exemption category: Waiver
+- expiration date required
+- owner required
+- Jira ticket reference required
+- Security/Governance approval required
+
+Microsoft Azure Policy exemption reference:
+https://learn.microsoft.com/en-us/azure/governance/policy/concepts/exemption-structure
+
+Implementation notes:
+- US-0001: create new Datadog Integration App Registration / Service Principal via tf-common application module
+- US-002: extend Datadog integration only to agreed target subscriptions / management groups via tf-ecosystems / common-ecosystem module
+- create dedicated Resource Group for Datadog Log Forwarder resources, name TBD
+- do not remove existing PoC Service Principal role assignments yet, as some teams may still depend on it
+
+Final position:
+Initial App Registration / RBAC setup should not need Azure Policy exemptions.
+Only Log Forwarder resources may need narrow, time-bound waivers for the specific policy conflicts observed in PoC.
+
+
+Answer for item 2 - Point of core installation: Subscription / Resource Group
+
+We have 3 options for Datadog core/control-plane placement:
+
+1. New dedicated Datadog ecosystem / subscription
+2. Existing Cloud Platform subscription
+3. AM_S / shared resources subscription
+
+Recommendation:
+Use option 1: dedicated Datadog subscription + dedicated Resource Group for Datadog control-plane / Log Forwarder resources.
+
+Preferred placement:
+- dedicated Datadog subscription
+- dedicated Resource Group, name TBD
+- platform/core team ownership
+- deployed via Terraform/IaC
+- no shared workload resources in the same RG
+- no application team ownership
+- no mixing with unrelated shared infrastructure
+
+If our internal Azure hierarchy allows it, the best fit would be under Platform / Management / Observability area.
+If this does not exist in the current structure, then create a dedicated Datadog ecosystem/subscription under the agreed Landing Zones structure, but keep it platform-owned.
+
+Why this is the preferred option:
+- clean isolation of Datadog-created resources
+- clear cost ownership
+- easier chargeback / cost tracking
+- smaller blast radius
+- easier RBAC model
+- easier Azure Policy exception scope if waivers are needed
+- no pollution of existing Cloud Platform or shared-resource subscriptions
+- better long-term operating model
+
+Option 2 - Cloud Platform subscription:
+Acceptable only as fallback or temporary placement.
+
+Pros:
+- already exists
+- PoC was done there
+- platform team already has access and operating model
+- fastest path
+
+Cons:
+- mixes Datadog control-plane resources with existing Cloud Platform resources
+- cost ownership less clean
+- policy waivers could affect or complicate an existing platform subscription
+- higher blast radius
+- harder to separate lifecycle/offboarding later
+
+Option 3 - AM_S / shared resources subscription:
+Not recommended as target state.
+
+Reason:
+AM_S is for shared resources. Datadog Log Forwarder / control-plane resources should not be mixed with generic shared infrastructure.
+
+Main concerns:
+- unclear cost ownership
+- shared blast radius
+- harder RBAC separation
+- harder policy exemption scope
+- harder troubleshooting
+- risk of mixing observability control-plane with unrelated shared services
+
+Datadog reference:
+Datadog Log Forwarder setup requires choosing:
+- Resource Group name for Log Forwarder control plane
+- control plane subscription
+- control plane region
+
+https://docs.datadoghq.com/getting_started/integrations/azure/
+
+Microsoft references:
+Azure subscriptions are management, billing, scale, governance, security and identity boundaries:
+https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-area/resource-org-subscriptions
+
+Azure Landing Zone platform area is intended for shared platform services like management, monitoring, connectivity and identity:
+https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/
+
+Management group / subscription organization guidance:
+https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-area/resource-org-management-groups
+
+Final position:
+Target state should be a dedicated Datadog subscription and dedicated Resource Group.
+Cloud Platform can be used only if we consciously accept it as temporary/fallback.
+AM_S should not be used for the production Datadog core installation.
+
+
+Answer for item 3 - Components needed during Datadog + Azure integration
+
+We should split DD+AZ integration into layers. Not everything is Day-1.
+
+Day-1 / baseline Azure integration:
+- Datadog App Registration / Service Principal
+- baseline Microsoft Graph permissions
+- Monitoring Reader RBAC on agreed subscriptions / management groups
+- Datadog Azure integration configuration
+- controlled metric collection
+- controlled resource collection
+
+Log forwarding components:
+- dedicated Datadog Log Forwarder Resource Group
+- control-plane subscription
+- control-plane region
+- Storage Account used by Log Forwarder
+- Datadog-created forwarding components, e.g. Function App / Container App / Managed Identity / App Service Plan / Application Insights, depending on selected deployment path
+- Diagnostic Settings for selected Azure resources / subscriptions
+- Log Analytics Workspace per ecosystem
+- Log Analytics data export rules from LAW to the Log Forwarder Storage Account
+- Defender for Cloud Continuous Export if security alerts/recommendations/secure score/compliance are in scope
+
+Current preferred log pattern:
+1. Azure resources / subscription logs / Defender data -> ecosystem Log Analytics Workspace
+2. Log Analytics Workspace selected tables -> Storage Account
+3. Datadog Log Forwarder -> Datadog
+
+Important:
+- do not forward everything by default
+- define required log sources and tables first
+- configure data export through Terraform/IaC
+- onboard Defender Continuous Export to Terraform/IaC if we decide to include Defender data
+- current common-ecosystem Terraform module already has parts of this pattern and should be extended/reviewed for Datadog
+
+Agents:
+- Azure VM Datadog Agent and AKS Cluster Extension should be later phase, not mandatory Day-1
+- use them only where we need deeper visibility: application health, process utilization, system-level metrics, workload logs/traces, AKS details
+- rollout should be scoped/piloted, not tenant-wide
+
+References:
+https://docs.datadoghq.com/getting_started/integrations/azure/
+https://docs.datadoghq.com/logs/guide/azure-manual-log-forwarding/
+https://learn.microsoft.com/en-us/azure/azure-monitor/platform/diagnostic-settings
+https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-data-export
+https://learn.microsoft.com/en-us/azure/defender-for-cloud/continuous-export
+
+Answer for item 4 - Log Analytics readiness / aggregation / continuous export
+
+Current direction:
+Use one common Log Analytics Workspace per ecosystem as the aggregation point, then export selected LAW tables to the Datadog Log Forwarder Storage Account.
+
+This means the readiness work is mainly around 4 areas:
+
+1. Inventory existing LAW setup
+- confirm common LAW per ecosystem
+- confirm subscription/resource mapping
+- confirm region alignment
+- confirm retention and daily quota
+- confirm current diagnostic settings coverage
+
+2. Confirm what is already flowing into LAW
+- subscription Activity Logs
+- selected resource logs
+- selected platform metrics, if needed
+- Defender for Cloud data, if in scope
+- application/workload logs only where required
+
+3. Configure export from LAW
+- create Data Export Rules on each ecosystem LAW
+- export only selected tables
+- destination: Datadog Log Forwarder Storage Account or Event Hub, depending on final Log Forwarder design
+- avoid exporting all tables by default
+- define table list, owner and reason for each exported table
+
+4. Onboard missing pieces to Terraform/IaC
+- LAW definition/configuration
+- Diagnostic Settings
+- LAW Data Export Rules
+- Defender for Cloud Continuous Export / Environment Settings, if used
+- required RBAC for creating/updating export rules and writing to target Storage/Event Hub
+
+Important note:
+The "two step" flow is the target pattern for our current LAW-centric model:
+source -> LAW -> Storage Account/Event Hub -> Datadog.
+
+This is not the only possible Azure pattern, because Diagnostic Settings can also send data directly to destinations like Storage Account, Event Hub or Log Analytics. But for this platform setup, LAW as the common aggregation point makes sense if we want one controlled place per ecosystem before forwarding to Datadog.
+
+Open decision:
+- exact LAW tables to export
+- exact target: Storage Account vs Event Hub
+- whether Defender Continuous Export goes to LAW first or directly to Event Hub
+- whether current Terraform modules already cover this fully or need extension
+
+References:
+https://learn.microsoft.com/en-us/azure/azure-monitor/platform/diagnostic-settings
+https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-data-export
+https://learn.microsoft.com/en-us/azure/defender-for-cloud/continuous-export
+https://docs.datadoghq.com/getting_started/integrations/azure/
+https://docs.datadoghq.com/logs/guide/azure-manual-log-forwarding/

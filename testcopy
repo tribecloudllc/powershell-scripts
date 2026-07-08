@@ -1,0 +1,7 @@
+src = "abfss://raw@stazpprpwe1ext01.dfs.core.windows.net/bios/raw_files"
+dst = "abfss://<dst-container>@<dst-account>.dfs.core.windows.net/bios/raw_files"
+
+# verify access — no spark.conf needed, UC handles auth
+display(dbutils.fs.ls(src))
+
+dbutils.fs.cp(src, dst, recurse=True)

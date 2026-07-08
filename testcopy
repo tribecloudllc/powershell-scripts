@@ -62,3 +62,33 @@ print(f"Source items: {src_count}, Destination items: {dst_count}")
 SHOW VOLUMES IN azp_prp_adapt_01.bios;
 SHOW VOLUMES IN azp_prod_adapt_01.bios;
 
+
+#####
+
+# ============================================================
+# Copy raw_files: PRP -> PROD via Unity Catalog volumes
+# Volumes point directly at .../bios/raw_files, so volume root = raw_files
+# Requires UC grants: READ VOLUME on source, WRITE VOLUME on destination
+# ============================================================
+
+src = "/Volumes/azp_prp_adapt_01/brz_bios_sys/bios_raw"
+dst = "/Volumes/azp_prod_adapt_01/brz_bios_sys/bios_raw"
+
+# --- 1. Read check on source (shows what will be copied) ---
+print("Source contents:")
+display(dbutils.fs.ls(src))
+
+# --- 2. Write check on destination ---
+dbutils.fs.put(dst + "/_access_test", "ok", overwrite=True)
+dbutils.fs.rm(dst + "/_access_test")
+print("Write access to destination: OK")
+
+# --- 3. Copy (merge: overwrites same-name files, keeps extras in dst) ---
+result = dbutils.fs.cp(src, dst, recurse=True)
+print(f"Copy completed: {result}")
+
+# --- 4. Verify: top-level counts ---
+src_count = len(dbutils.fs.ls(src))
+dst_count = len(dbutils.fs.ls(dst))
+print(f"Source items: {src_count}, Destination items: {dst_count}")
+

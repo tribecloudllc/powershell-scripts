@@ -1,41 +1,99 @@
 # ============================================================
-# Copy raw_files: PRP -> PROD via Unity Catalog volumes
-# Run on a UC-enabled cluster (Single user or Shared access mode)
-# Requires UC grants: READ VOLUME on source, WRITE VOLUME on destination
+# Copy bios/raw_files: PRP -> PROD via AzCopy, two different SPNs
+#   - SOURCE SPN:      Storage Blob Data Reader      on stazpprpwe1ext01
+#   - DESTINATION SPN: Storage Blob Data Contributor on stazpprodwe1ext01
+# Mechanism: user-delegation SAS (source SPN) + OAuth login (dest SPN)
+# Requires: Az.Accounts, Az.Storage modules; azcopy v10
 # ============================================================
 
-src = "/Volumes/azp_prp_adapt_01/brz_bios_sys/bios_raw"
-dst = "/Volumes/azp_prod_adapt_01/brz_bios_sys/bios_raw"
+# --- 0. Config ---
+$TenantId          = "<tenant-id>"
 
-# --- 1. Read check on source (shows what will be copied) ---
-print("Source contents:")
-display(dbutils.fs.ls(src))
+# Source SPN (prp)
+$SrcClientId       = "<source-spn-application-id>"
+$SrcClientSecret   = "<source-spn-client-secret>"
+$SrcAccount        = "stazpprpwe1ext01"
+$SrcContainer      = "raw"
+$SrcPath           = "bios/raw_files"
 
-# --- 2. Write check on destination ---
-dbutils.fs.put(dst + "/_access_test", "ok", overwrite=True)
-dbutils.fs.rm(dst + "/_access_test")
-print("Write access to destination: OK")
+# Destination SPN (prod)
+$DstClientId       = "<dest-spn-application-id>"
+$DstClientSecret   = "<dest-spn-client-secret>"
+$DstAccount        = "stazpprodwe1ext01"
+$DstContainer      = "raw"
+$DstPath           = "bios/raw_files"
 
-# --- 3. Copy (merge: overwrites same-name files, keeps extras in dst) ---
-result = dbutils.fs.cp(src, dst, recurse=True)
-print(f"Copy completed: {result}")
+$SrcUrlBase = "https://$SrcAccount.blob.core.windows.net/$SrcContainer/$SrcPath"
+$DstUrl     = "https://$DstAccount.dfs.core.windows.net/$DstContainer/$DstPath"
 
-# --- 4. Verify: top-level counts ---
-src_count = len(dbutils.fs.ls(src))
-dst_count = len(dbutils.fs.ls(dst))
-print(f"Source items: {src_count}, Destination items: {dst_count}")
+# --- 1. Ensure modules + azcopy ---
+foreach ($m in @("Az.Accounts", "Az.Storage")) {
+    if (-not (Get-Module -ListAvailable -Name $m)) {
+        Install-Module $m -Scope CurrentUser -Force
+    }
+}
+$azcopy = Get-Command azcopy -ErrorAction SilentlyContinue
+if (-not $azcopy) {
+    Write-Host "AzCopy not found - downloading..." -ForegroundColor Yellow
+    $zip = "$env:TEMP\azcopy.zip"; $dir = "$env:TEMP\azcopy"
+    Invoke-WebRequest -Uri "https://aka.ms/downloadazcopy-v10-windows" -OutFile $zip
+    Expand-Archive -Path $zip -DestinationPath $dir -Force
+    $exe = Get-ChildItem -Path $dir -Recurse -Filter azcopy.exe | Select-Object -First 1
+    $env:PATH = "$($exe.DirectoryName);$env:PATH"
+}
+azcopy --version
 
+# --- 2. Log in as SOURCE SPN and mint a user-delegation SAS (read+list, 4h) ---
+Write-Host "`n=== Generating source SAS (source SPN) ===" -ForegroundColor Cyan
+$sec  = ConvertTo-SecureString $SrcClientSecret -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential($SrcClientId, $sec)
+Connect-AzAccount -ServicePrincipal -Credential $cred -Tenant $TenantId | Out-Null
 
-####
+$ctx = New-AzStorageContext -StorageAccountName $SrcAccount -UseConnectedAccount
 
--- 1. The principal that needs WRITE VOLUME (you)
-SELECT current_user();
+$sas = New-AzStorageContainerSASToken `
+    -Context    $ctx `
+    -Name       $SrcContainer `
+    -Permission "rl" `
+    -StartTime  (Get-Date).AddMinutes(-5) `
+    -ExpiryTime (Get-Date).AddHours(4)
 
--- 2. Who owns the prod volume (owner column)
-DESCRIBE VOLUME azp_prod_adapt_01.brz_bios_sys.bios_raw;
+if (-not $sas) { Write-Host "SAS generation failed" -ForegroundColor Red; exit 1 }
+$sas = $sas.TrimStart('?')
+$SrcUrlWithSas = "$SrcUrlBase`?$sas"
+Write-Host "Source SAS generated (expires in 4h)."
 
--- 3. What grants already exist on it
-SHOW GRANTS ON VOLUME azp_prod_adapt_01.brz_bios_sys.bios_raw;
+Disconnect-AzAccount | Out-Null
 
--- 4. Catalog owner (can always grant on child objects)
-DESCRIBE CATALOG EXTENDED azp_prod_adapt_01;
+# --- 3. Configure azcopy to authenticate as DESTINATION SPN ---
+$env:AZCOPY_AUTO_LOGIN_TYPE    = "SPN"
+$env:AZCOPY_SPA_APPLICATION_ID = $DstClientId
+$env:AZCOPY_SPA_CLIENT_SECRET  = $DstClientSecret
+$env:AZCOPY_TENANT_ID          = $TenantId
+
+# --- 4. Dry run: list what would be copied, touch nothing ---
+Write-Host "`n=== DRY RUN ===" -ForegroundColor Cyan
+azcopy copy $SrcUrlWithSas $DstUrl --recursive --dry-run
+
+$confirm = Read-Host "`nProceed with actual copy? (y/n)"
+if ($confirm -ne "y") { Write-Host "Aborted."; exit 0 }
+
+# --- 5. Actual copy (server-side, overwrites same-name files) ---
+Write-Host "`n=== COPYING ===" -ForegroundColor Cyan
+azcopy copy $SrcUrlWithSas $DstUrl --recursive --overwrite=true --log-level=INFO
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Copy FAILED (exit $LASTEXITCODE). Log dir: $env:USERPROFILE\.azcopy" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
+# --- 6. Verify: object counts on both sides ---
+Write-Host "`n=== VERIFY ===" -ForegroundColor Cyan
+$srcCount = (azcopy list $SrcUrlWithSas --recursive | Measure-Object).Count
+$dstCount = (azcopy list $DstUrl        --recursive | Measure-Object).Count
+Write-Host "Source objects: $srcCount"
+Write-Host "Destination objects: $dstCount"
+
+# --- 7. Clean up secrets from session ---
+Remove-Item Env:\AZCOPY_SPA_CLIENT_SECRET -ErrorAction SilentlyContinue
+Write-Host "`nDone." -ForegroundColor Green

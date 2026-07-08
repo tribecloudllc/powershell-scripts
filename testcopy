@@ -1,73 +1,6 @@
-src = "abfss://raw@stazpprpwe1ext01.dfs.core.windows.net/bios/raw_files"
-dst = "abfss://<dst-container>@<dst-account>.dfs.core.windows.net/bios/raw_files"
-
-# verify access — no spark.conf needed, UC handles auth
-display(dbutils.fs.ls(src))
-
-dbutils.fs.cp(src, dst, recurse=True)
-
-
-#########
-
-src = "abfss://raw@stazpprpwe1ext01.dfs.core.windows.net/bios/raw_files"
-dst = "abfss://raw@stazpprodwe1ext01.dfs.core.windows.net/bios/raw_files"
-
-# read check on source
-display(dbutils.fs.ls(src))
-
-# write check on destination (creates + removes a marker)
-dbutils.fs.put(dst + "/_access_test", "ok", overwrite=True)
-dbutils.fs.rm(dst + "/_access_test")
-
-dbutils.fs.cp(src, dst, recurse=True)
-
-
-#########
-
-len(dbutils.fs.ls(src)), len(dbutils.fs.ls(dst))
-
-
-####################
-
-# ============================================================
-# Copy bios/raw_files from PRP storage account to PROD
-# Auth: handled by Unity Catalog external locations
-# Requires: READ FILES on source location, WRITE FILES on dest
-# ============================================================
-
-src = "abfss://raw@stazpprpwe1ext01.dfs.core.windows.net/bios/raw_files"
-dst = "abfss://raw@stazpprodwe1ext01.dfs.core.windows.net/bios/raw_files"
-
-# --- 1. Read check on source (also shows what will be copied) ---
-print("Source contents:")
-display(dbutils.fs.ls(src))
-
-# --- 2. Write check on destination (creates + removes a marker) ---
-dbutils.fs.put(dst + "/_access_test", "ok", overwrite=True)
-dbutils.fs.rm(dst + "/_access_test")
-print("Write access to destination: OK")
-
-# --- 3. Copy (merge behavior: overwrites same-name files, keeps extras) ---
-result = dbutils.fs.cp(src, dst, recurse=True)
-print(f"Copy completed: {result}")
-
-# --- 4. Verify: compare top-level item counts ---
-src_count = len(dbutils.fs.ls(src))
-dst_count = len(dbutils.fs.ls(dst))
-print(f"Source items: {src_count}, Destination items: {dst_count}")
-
-
-####
-
-SHOW VOLUMES IN azp_prp_adapt_01.bios;
-SHOW VOLUMES IN azp_prod_adapt_01.bios;
-
-
-#####
-
 # ============================================================
 # Copy raw_files: PRP -> PROD via Unity Catalog volumes
-# Volumes point directly at .../bios/raw_files, so volume root = raw_files
+# Run on a UC-enabled cluster (Single user or Shared access mode)
 # Requires UC grants: READ VOLUME on source, WRITE VOLUME on destination
 # ============================================================
 
@@ -91,4 +24,3 @@ print(f"Copy completed: {result}")
 src_count = len(dbutils.fs.ls(src))
 dst_count = len(dbutils.fs.ls(dst))
 print(f"Source items: {src_count}, Destination items: {dst_count}")
-

@@ -20,3 +20,9 @@ dbutils.fs.put(dst + "/_access_test", "ok", overwrite=True)
 dbutils.fs.rm(dst + "/_access_test")
 
 dbutils.fs.cp(src, dst, recurse=True)
+
+
+#########
+
+len(dbutils.fs.ls(src)), len(dbutils.fs.ls(dst))
+

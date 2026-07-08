@@ -1,8 +1,8 @@
 # ============================================================
-# Copy bios/raw_files: PRP -> PROD via AzCopy, two different SPNs
+# Copy bios/raw_files: PRP -> PROD via AzCopy, two SPNs, TWO-HOP
+# (client-side relay: source firewall blocks server-side S2S copy)
 #   - SOURCE SPN:      Storage Blob Data Reader      on stazpprpwe1ext01
 #   - DESTINATION SPN: Storage Blob Data Contributor on stazpprodwe1ext01
-# Mechanism: user-delegation SAS (source SPN) + OAuth login (dest SPN)
 # Requires: Az.Accounts, Az.Storage modules; azcopy v10
 # ============================================================
 
@@ -21,10 +21,15 @@ $DstClientId       = "<dest-spn-application-id>"
 $DstClientSecret   = "<dest-spn-client-secret>"
 $DstAccount        = "stazpprodwe1ext01"
 $DstContainer      = "raw"
-$DstPath           = "bios/raw_files"
+
+# NOTE: destination is the PARENT folder - azcopy will place 'raw_files' inside it
+$DstParentPath     = "bios"
+
+# Local staging directory (needs enough free disk for the full dataset)
+$Staging           = "C:\Temp\azcopy_staging"
 
 $SrcUrlBase = "https://$SrcAccount.blob.core.windows.net/$SrcContainer/$SrcPath"
-$DstUrl     = "https://$DstAccount.dfs.core.windows.net/$DstContainer/$DstPath"
+$DstUrl     = "https://$DstAccount.dfs.core.windows.net/$DstContainer/$DstParentPath"
 
 # --- 1. Ensure modules + azcopy ---
 foreach ($m in @("Az.Accounts", "Az.Storage")) {
@@ -43,57 +48,61 @@ if (-not $azcopy) {
 }
 azcopy --version
 
-# --- 2. Log in as SOURCE SPN and mint a user-delegation SAS (read+list, 4h) ---
+# --- 2. Mint user-delegation SAS on source (source SPN, read+list, 8h) ---
 Write-Host "`n=== Generating source SAS (source SPN) ===" -ForegroundColor Cyan
 $sec  = ConvertTo-SecureString $SrcClientSecret -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential($SrcClientId, $sec)
 Connect-AzAccount -ServicePrincipal -Credential $cred -Tenant $TenantId | Out-Null
 
 $ctx = New-AzStorageContext -StorageAccountName $SrcAccount -UseConnectedAccount
-
 $sas = New-AzStorageContainerSASToken `
     -Context    $ctx `
     -Name       $SrcContainer `
     -Permission "rl" `
     -StartTime  (Get-Date).AddMinutes(-5) `
-    -ExpiryTime (Get-Date).AddHours(4)
+    -ExpiryTime (Get-Date).AddHours(8)
 
 if (-not $sas) { Write-Host "SAS generation failed" -ForegroundColor Red; exit 1 }
 $sas = $sas.TrimStart('?')
 $SrcUrlWithSas = "$SrcUrlBase`?$sas"
-Write-Host "Source SAS generated (expires in 4h)."
-
 Disconnect-AzAccount | Out-Null
+Write-Host "Source SAS generated (8h expiry)."
 
-# --- 3. Configure azcopy to authenticate as DESTINATION SPN ---
+# --- 3. HOP 1: download source -> local staging (client-side, SAS auth) ---
+New-Item -ItemType Directory -Path $Staging -Force | Out-Null
+Write-Host "`n=== HOP 1: DOWNLOAD to $Staging ===" -ForegroundColor Cyan
+azcopy copy $SrcUrlWithSas $Staging --recursive --log-level=INFO
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Download FAILED (exit $LASTEXITCODE). Log dir: $env:USERPROFILE\.azcopy" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+$LocalDir   = Join-Path $Staging "raw_files"   # azcopy created this folder
+$localCount = (Get-ChildItem -Path $LocalDir -Recurse -File | Measure-Object).Count
+Write-Host "Downloaded files: $localCount"
+
+# --- 4. HOP 2: upload local staging -> destination (dest SPN OAuth) ---
 $env:AZCOPY_AUTO_LOGIN_TYPE    = "SPN"
 $env:AZCOPY_SPA_APPLICATION_ID = $DstClientId
 $env:AZCOPY_SPA_CLIENT_SECRET  = $DstClientSecret
 $env:AZCOPY_TENANT_ID          = $TenantId
 
-# --- 4. Dry run: list what would be copied, touch nothing ---
-Write-Host "`n=== DRY RUN ===" -ForegroundColor Cyan
-azcopy copy $SrcUrlWithSas $DstUrl --recursive --dry-run
-
-$confirm = Read-Host "`nProceed with actual copy? (y/n)"
-if ($confirm -ne "y") { Write-Host "Aborted."; exit 0 }
-
-# --- 5. Actual copy (server-side, overwrites same-name files) ---
-Write-Host "`n=== COPYING ===" -ForegroundColor Cyan
-azcopy copy $SrcUrlWithSas $DstUrl --recursive --overwrite=true --log-level=INFO
-
+Write-Host "`n=== HOP 2: UPLOAD to $DstUrl ===" -ForegroundColor Cyan
+# uploading folder 'raw_files' into parent 'bios' => lands at bios/raw_files
+azcopy copy $LocalDir $DstUrl --recursive --overwrite=true --log-level=INFO
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Copy FAILED (exit $LASTEXITCODE). Log dir: $env:USERPROFILE\.azcopy" -ForegroundColor Red
+    Write-Host "Upload FAILED (exit $LASTEXITCODE). Log dir: $env:USERPROFILE\.azcopy" -ForegroundColor Red
     exit $LASTEXITCODE
 }
 
-# --- 6. Verify: object counts on both sides ---
+# --- 5. Verify: compare counts (local vs destination) ---
 Write-Host "`n=== VERIFY ===" -ForegroundColor Cyan
-$srcCount = (azcopy list $SrcUrlWithSas --recursive | Measure-Object).Count
-$dstCount = (azcopy list $DstUrl        --recursive | Measure-Object).Count
-Write-Host "Source objects: $srcCount"
-Write-Host "Destination objects: $dstCount"
+$dstList  = azcopy list "https://$DstAccount.dfs.core.windows.net/$DstContainer/$DstParentPath/raw_files" --recursive
+$dstCount = ($dstList | Where-Object { $_ -match "INFO: " } | Measure-Object).Count
+Write-Host "Local files:       $localCount"
+Write-Host "Destination lines: $dstCount (azcopy list output, approx)"
 
-# --- 7. Clean up secrets from session ---
+# --- 6. Cleanup ---
 Remove-Item Env:\AZCOPY_SPA_CLIENT_SECRET -ErrorAction SilentlyContinue
-Write-Host "`nDone." -ForegroundColor Green
+$cleanup = Read-Host "`nDelete local staging folder $Staging ? (y/n)"
+if ($cleanup -eq "y") { Remove-Item -Path $Staging -Recurse -Force }
+Write-Host "Done." -ForegroundColor Green

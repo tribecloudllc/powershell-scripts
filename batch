@@ -1,0 +1,160 @@
+# ============================================================
+# BATCHED two-hop copy: PRP -> PROD via AzCopy, two SPNs
+# Downloads a batch -> uploads it -> deletes staging -> next batch
+# Peak local disk usage = 1 batch (default 2 GB)
+#   - SOURCE SPN:      Storage Blob Data Reader      on stazpprpwe1ext01
+#   - DESTINATION SPN: Storage Blob Data Contributor on stazpprodwe1ext01
+# Prereq: BOTH storage account firewalls allow YOUR current IP
+# Requires: Az.Accounts, Az.Storage modules; azcopy v10
+# ============================================================
+
+# --- 0. Config ---
+$TenantId          = "<tenant-id>"
+
+# Source SPN (prp)
+$SrcClientId       = "<source-spn-application-id>"
+$SrcClientSecret   = "<source-spn-client-secret>"
+$SrcAccount        = "stazpprpwe1ext01"
+$SrcContainer      = "raw"
+$SrcPrefix         = "bios/raw_files"
+
+# Destination SPN (prod)
+$DstClientId       = "<dest-spn-application-id>"
+$DstClientSecret   = "<dest-spn-client-secret>"
+$DstAccount        = "stazpprodwe1ext01"
+$DstContainer      = "raw"
+$DstPrefix         = "bios/raw_files"
+
+# Staging + limits
+$Staging           = "C:\Temp\azcopy_staging"   # change drive if C: is tight
+$BatchGB           = 2        # max GB on disk at any moment
+$Concurrency       = "8"      # azcopy parallel connections
+$BufferGB          = "1"      # azcopy RAM cap
+$CapMbps           = 100      # bandwidth cap, 0 = unlimited
+
+# --- 1. Ensure modules + azcopy ---
+foreach ($m in @("Az.Accounts", "Az.Storage")) {
+    if (-not (Get-Module -ListAvailable -Name $m)) {
+        Install-Module $m -Scope CurrentUser -Force
+    }
+}
+$azcopy = Get-Command azcopy -ErrorAction SilentlyContinue
+if (-not $azcopy) {
+    Write-Host "AzCopy not found - downloading..." -ForegroundColor Yellow
+    $zip = "$env:TEMP\azcopy.zip"; $dir = "$env:TEMP\azcopy"
+    Invoke-WebRequest -Uri "https://aka.ms/downloadazcopy-v10-windows" -OutFile $zip
+    Expand-Archive -Path $zip -DestinationPath $dir -Force
+    $exe = Get-ChildItem -Path $dir -Recurse -Filter azcopy.exe | Select-Object -First 1
+    $env:PATH = "$($exe.DirectoryName);$env:PATH"
+}
+azcopy --version
+
+$env:AZCOPY_CONCURRENCY_VALUE = $Concurrency
+$env:AZCOPY_BUFFER_GB         = $BufferGB
+Write-Host "Limits: concurrency=$Concurrency, buffer=${BufferGB}GB, cap=${CapMbps}Mbps, batch=${BatchGB}GB"
+
+# --- 2. As SOURCE SPN: enumerate blobs + mint container read SAS (8h) ---
+Write-Host "`n=== Enumerating source + generating SAS ===" -ForegroundColor Cyan
+$sec  = ConvertTo-SecureString $SrcClientSecret -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential($SrcClientId, $sec)
+Connect-AzAccount -ServicePrincipal -Credential $cred -Tenant $TenantId | Out-Null
+$srcCtx = New-AzStorageContext -StorageAccountName $SrcAccount -UseConnectedAccount
+
+$blobs = Get-AzStorageBlob -Container $SrcContainer -Prefix $SrcPrefix -Context $srcCtx |
+         Where-Object { $_.Length -gt 0 }
+$totalGB = ($blobs | Measure-Object Length -Sum).Sum / 1GB
+Write-Host ("Found {0} blobs, total {1:N2} GB" -f $blobs.Count, $totalGB)
+
+$sas = New-AzStorageContainerSASToken -Context $srcCtx -Name $SrcContainer `
+       -Permission "rl" -StartTime (Get-Date).AddMinutes(-5) -ExpiryTime (Get-Date).AddHours(8)
+$sas = $sas.TrimStart('?')
+Disconnect-AzAccount | Out-Null
+
+# Estimated runtime warning if SAS might expire
+$estHours = ($totalGB * 8 * 2) / ($CapMbps * 3600)
+if ($estHours -gt 7) {
+    Write-Host ("WARNING: estimated {0:N1}h transfer may exceed 8h SAS. Raise CapMbps or ask for SAS-renewal version." -f $estHours) -ForegroundColor Yellow
+}
+
+# --- 3. Split into batches by cumulative size ---
+$batchLimit = $BatchGB * 1GB
+$batches = @(); $current = @(); $currentBytes = 0
+foreach ($b in $blobs) {
+    if ($currentBytes + $b.Length -gt $batchLimit -and $current.Count -gt 0) {
+        $batches += ,@($current); $current = @(); $currentBytes = 0
+    }
+    $current += $b; $currentBytes += $b.Length
+}
+if ($current.Count -gt 0) { $batches += ,@($current) }
+Write-Host "Split into $($batches.Count) batches of <= $BatchGB GB"
+
+# --- 4. Destination SPN auth for azcopy uploads ---
+$env:AZCOPY_AUTO_LOGIN_TYPE    = "SPN"
+$env:AZCOPY_SPA_APPLICATION_ID = $DstClientId
+$env:AZCOPY_SPA_CLIENT_SECRET  = $DstClientSecret
+$env:AZCOPY_TENANT_ID          = $TenantId
+
+$DstUrlBase      = "https://$DstAccount.dfs.core.windows.net/$DstContainer/$DstPrefix"
+$SrcUrlContainer = "https://$SrcAccount.blob.core.windows.net/$SrcContainer"
+
+# --- 5. Batches: download -> upload -> clean staging ---
+New-Item -ItemType Directory -Path $Staging -Force | Out-Null
+$batchNum = 0; $failedBatches = @()
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+foreach ($batch in $batches) {
+    $batchNum++
+    $batchGBsize = ($batch | Measure-Object Length -Sum).Sum / 1GB
+    Write-Host ("`n=== Batch {0}/{1}: {2} files, {3:N2} GB | elapsed {4:hh\:mm} ===" -f `
+        $batchNum, $batches.Count, $batch.Count, $batchGBsize, $sw.Elapsed) -ForegroundColor Cyan
+
+    # 5a. List-of-files for azcopy (paths relative to container)
+    $listFile = Join-Path $env:TEMP "azcopy_batch_$batchNum.txt"
+    $batch | ForEach-Object { $_.Name } | Set-Content -Path $listFile -Encoding UTF8
+
+    # 5b. Download batch to staging
+    azcopy copy "$SrcUrlContainer`?$sas" $Staging --list-of-files $listFile --log-level=WARNING --cap-mbps $CapMbps
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Batch $batchNum DOWNLOAD failed (exit $LASTEXITCODE)" -ForegroundColor Red
+        $failedBatches += $batchNum
+        Remove-Item -Path "$Staging\*" -Recurse -Force -ErrorAction SilentlyContinue
+        continue
+    }
+
+    # 5c. Upload staged content to destination
+    $stagedRoot = Join-Path $Staging ($SrcPrefix -replace "/", "\")
+    azcopy copy "$stagedRoot\*" $DstUrlBase --recursive --overwrite=true --log-level=WARNING --cap-mbps $CapMbps
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Batch $batchNum UPLOAD failed (exit $LASTEXITCODE)" -ForegroundColor Red
+        $failedBatches += $batchNum
+    }
+
+    # 5d. Clean staging
+    Remove-Item -Path "$Staging\*" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $listFile -Force -ErrorAction SilentlyContinue
+    Write-Host "Batch $batchNum done, staging cleaned."
+}
+
+# --- 6. Verify: destination blob count ---
+Write-Host "`n=== VERIFY ===" -ForegroundColor Cyan
+$sec2  = ConvertTo-SecureString $DstClientSecret -AsPlainText -Force
+$cred2 = New-Object System.Management.Automation.PSCredential($DstClientId, $sec2)
+Connect-AzAccount -ServicePrincipal -Credential $cred2 -Tenant $TenantId | Out-Null
+$dstCtx = New-AzStorageContext -StorageAccountName $DstAccount -UseConnectedAccount
+$dstCount = (Get-AzStorageBlob -Container $DstContainer -Prefix $DstPrefix -Context $dstCtx |
+             Where-Object { $_.Length -gt 0 }).Count
+Disconnect-AzAccount | Out-Null
+
+Write-Host "Source blobs:      $($blobs.Count)"
+Write-Host "Destination blobs: $dstCount"
+if ($failedBatches.Count -gt 0) {
+    Write-Host "FAILED batches: $($failedBatches -join ', ')" -ForegroundColor Red
+    Write-Host "Just re-run the script - idempotent, overwrites safely." -ForegroundColor Yellow
+} else {
+    Write-Host "All batches completed successfully." -ForegroundColor Green
+}
+
+# --- 7. Cleanup ---
+Remove-Item Env:\AZCOPY_SPA_CLIENT_SECRET -ErrorAction SilentlyContinue
+Remove-Item -Path $Staging -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "`nDone. REMINDER: remove your IP rules from both storage accounts!" -ForegroundColor Yellow

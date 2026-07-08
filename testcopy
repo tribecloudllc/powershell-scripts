@@ -28,11 +28,14 @@ print(f"Source items: {src_count}, Destination items: {dst_count}")
 
 ####
 
--- 1. The principal that needs WRITE VOLUME (i.e., who you are right now)
+-- 1. The principal that needs WRITE VOLUME (you)
 SELECT current_user();
 
--- 2. Who owns the prod volume (they can grant, or a catalog/metastore admin can)
-DESCRIBE VOLUME EXTENDED azp_prod_adapt_01.brz_bios_sys.bios_raw;
+-- 2. Who owns the prod volume (owner column)
+DESCRIBE VOLUME azp_prod_adapt_01.brz_bios_sys.bios_raw;
 
--- 3. What grants already exist on it (see how others got access — often a group)
+-- 3. What grants already exist on it
 SHOW GRANTS ON VOLUME azp_prod_adapt_01.brz_bios_sys.bios_raw;
+
+-- 4. Catalog owner (can always grant on child objects)
+DESCRIBE CATALOG EXTENDED azp_prod_adapt_01;

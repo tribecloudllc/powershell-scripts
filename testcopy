@@ -3,6 +3,7 @@
 # (client-side relay: source firewall blocks server-side S2S copy)
 #   - SOURCE SPN:      Storage Blob Data Reader      on stazpprpwe1ext01
 #   - DESTINATION SPN: Storage Blob Data Contributor on stazpprodwe1ext01
+# Resource-limited: capped concurrency, RAM buffer, and bandwidth
 # Requires: Az.Accounts, Az.Storage modules; azcopy v10
 # ============================================================
 
@@ -21,12 +22,16 @@ $DstClientId       = "<dest-spn-application-id>"
 $DstClientSecret   = "<dest-spn-client-secret>"
 $DstAccount        = "stazpprodwe1ext01"
 $DstContainer      = "raw"
-
-# NOTE: destination is the PARENT folder - azcopy will place 'raw_files' inside it
+# Destination is the PARENT folder - azcopy places 'raw_files' inside it
 $DstParentPath     = "bios"
 
 # Local staging directory (needs enough free disk for the full dataset)
 $Staging           = "C:\Temp\azcopy_staging"
+
+# Resource limits
+$Concurrency       = "8"      # parallel connections (default is 16 * cores)
+$BufferGB          = "1"      # max RAM for buffering (default ~50% of free RAM)
+$CapMbps           = 100      # bandwidth cap in Mbps (0 = unlimited)
 
 $SrcUrlBase = "https://$SrcAccount.blob.core.windows.net/$SrcContainer/$SrcPath"
 $DstUrl     = "https://$DstAccount.dfs.core.windows.net/$DstContainer/$DstParentPath"
@@ -48,7 +53,12 @@ if (-not $azcopy) {
 }
 azcopy --version
 
-# --- 2. Mint user-delegation SAS on source (source SPN, read+list, 8h) ---
+# --- 2. Apply resource limits (must be set before azcopy runs) ---
+$env:AZCOPY_CONCURRENCY_VALUE = $Concurrency
+$env:AZCOPY_BUFFER_GB         = $BufferGB
+Write-Host "AzCopy limits: concurrency=$Concurrency, buffer=${BufferGB}GB, cap=${CapMbps}Mbps"
+
+# --- 3. Mint user-delegation SAS on source (source SPN, read+list, 8h) ---
 Write-Host "`n=== Generating source SAS (source SPN) ===" -ForegroundColor Cyan
 $sec  = ConvertTo-SecureString $SrcClientSecret -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential($SrcClientId, $sec)
@@ -68,19 +78,20 @@ $SrcUrlWithSas = "$SrcUrlBase`?$sas"
 Disconnect-AzAccount | Out-Null
 Write-Host "Source SAS generated (8h expiry)."
 
-# --- 3. HOP 1: download source -> local staging (client-side, SAS auth) ---
+# --- 4. HOP 1: download source -> local staging (client-side, SAS auth) ---
 New-Item -ItemType Directory -Path $Staging -Force | Out-Null
 Write-Host "`n=== HOP 1: DOWNLOAD to $Staging ===" -ForegroundColor Cyan
-azcopy copy $SrcUrlWithSas $Staging --recursive --log-level=INFO
+azcopy copy $SrcUrlWithSas $Staging --recursive --log-level=WARNING --cap-mbps $CapMbps
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Download FAILED (exit $LASTEXITCODE). Log dir: $env:USERPROFILE\.azcopy" -ForegroundColor Red
+    Write-Host "Tip: resumable via 'azcopy jobs list' + 'azcopy jobs resume <id> --source-sas <sas>'"
     exit $LASTEXITCODE
 }
 $LocalDir   = Join-Path $Staging "raw_files"   # azcopy created this folder
 $localCount = (Get-ChildItem -Path $LocalDir -Recurse -File | Measure-Object).Count
 Write-Host "Downloaded files: $localCount"
 
-# --- 4. HOP 2: upload local staging -> destination (dest SPN OAuth) ---
+# --- 5. HOP 2: upload local staging -> destination (dest SPN OAuth) ---
 $env:AZCOPY_AUTO_LOGIN_TYPE    = "SPN"
 $env:AZCOPY_SPA_APPLICATION_ID = $DstClientId
 $env:AZCOPY_SPA_CLIENT_SECRET  = $DstClientSecret
@@ -88,20 +99,21 @@ $env:AZCOPY_TENANT_ID          = $TenantId
 
 Write-Host "`n=== HOP 2: UPLOAD to $DstUrl ===" -ForegroundColor Cyan
 # uploading folder 'raw_files' into parent 'bios' => lands at bios/raw_files
-azcopy copy $LocalDir $DstUrl --recursive --overwrite=true --log-level=INFO
+azcopy copy $LocalDir $DstUrl --recursive --overwrite=true --log-level=WARNING --cap-mbps $CapMbps
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Upload FAILED (exit $LASTEXITCODE). Log dir: $env:USERPROFILE\.azcopy" -ForegroundColor Red
+    Write-Host "Tip: resumable via 'azcopy jobs list' + 'azcopy jobs resume <id>' (SPN env vars must be set)"
     exit $LASTEXITCODE
 }
 
-# --- 5. Verify: compare counts (local vs destination) ---
+# --- 6. Verify: compare counts (local vs destination) ---
 Write-Host "`n=== VERIFY ===" -ForegroundColor Cyan
 $dstList  = azcopy list "https://$DstAccount.dfs.core.windows.net/$DstContainer/$DstParentPath/raw_files" --recursive
 $dstCount = ($dstList | Where-Object { $_ -match "INFO: " } | Measure-Object).Count
-Write-Host "Local files:       $localCount"
-Write-Host "Destination lines: $dstCount (azcopy list output, approx)"
+Write-Host "Local files:            $localCount"
+Write-Host "Destination (approx):   $dstCount"
 
-# --- 6. Cleanup ---
+# --- 7. Cleanup ---
 Remove-Item Env:\AZCOPY_SPA_CLIENT_SECRET -ErrorAction SilentlyContinue
 $cleanup = Read-Host "`nDelete local staging folder $Staging ? (y/n)"
 if ($cleanup -eq "y") { Remove-Item -Path $Staging -Recurse -Force }

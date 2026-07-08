@@ -1,0 +1,103 @@
+# ============================================================
+# Cell 1: install SDK packages, then restart Python
+# Run once per cluster session, wait for it to finish
+# ============================================================
+%pip install azure-identity azure-storage-file-datalake --quiet
+dbutils.library.restartPython()
+
+# ============================================================
+# Cell 2: copy bios/raw_files PRP -> PROD
+# Direct storage SDK on the driver, two different SPNs
+#   - SOURCE SPN:      Storage Blob Data Reader      on stazpprpwe1ext01
+#   - DESTINATION SPN: Storage Blob Data Contributor on stazpprodwe1ext01
+# No UC grants needed (Azure RBAC), no firewall changes needed
+# (cluster network already reaches both accounts), zero local disk
+# ============================================================
+from azure.identity import ClientSecretCredential
+from azure.storage.filedatalake import DataLakeServiceClient
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# --- 0. Config ---
+TENANT_ID      = "<tenant-id>"
+
+# Source SPN (prp)
+SRC_CLIENT_ID  = "<source-spn-application-id>"
+SRC_SECRET     = "<source-spn-client-secret>"   # prefer dbutils.secrets.get("scope","key")
+SRC_ACCOUNT    = "stazpprpwe1ext01"
+SRC_FILESYSTEM = "raw"
+SRC_PREFIX     = "bios/raw_files"
+
+# Destination SPN (prod)
+DST_CLIENT_ID  = "<dest-spn-application-id>"
+DST_SECRET     = "<dest-spn-client-secret>"
+DST_ACCOUNT    = "stazpprodwe1ext01"
+DST_FILESYSTEM = "raw"
+DST_PREFIX     = "bios/raw_files"
+
+DRY_RUN        = True      # True = list only; set False to actually copy
+MAX_WORKERS    = 8         # parallel file copies (raise to 16 if driver is comfy)
+
+# --- 1. Two independent credentials, one per SPN ---
+src_cred = ClientSecretCredential(TENANT_ID, SRC_CLIENT_ID, SRC_SECRET)
+dst_cred = ClientSecretCredential(TENANT_ID, DST_CLIENT_ID, DST_SECRET)
+
+src_fs = DataLakeServiceClient(f"https://{SRC_ACCOUNT}.dfs.core.windows.net",
+                               credential=src_cred).get_file_system_client(SRC_FILESYSTEM)
+dst_fs = DataLakeServiceClient(f"https://{DST_ACCOUNT}.dfs.core.windows.net",
+                               credential=dst_cred).get_file_system_client(DST_FILESYSTEM)
+
+# --- 2. Enumerate source files ---
+paths = [p for p in src_fs.get_paths(path=SRC_PREFIX, recursive=True) if not p.is_directory]
+total_bytes = sum(p.content_length for p in paths)
+print(f"Found {len(paths)} files, {total_bytes/1e9:.2f} GB under {SRC_ACCOUNT}/{SRC_FILESYSTEM}/{SRC_PREFIX}")
+
+if DRY_RUN:
+    for p in paths[:20]:
+        print(f"  {p.name}  ({p.content_length} bytes)")
+    print(f"... ({len(paths)} files total). Set DRY_RUN = False to copy.")
+else:
+    # --- 3. Stream-copy each file through the driver (8 MB chunks, no disk) ---
+    def copy_one(p):
+        rel      = p.name[len(SRC_PREFIX):].lstrip("/")
+        dst_path = f"{DST_PREFIX}/{rel}"
+        src_file = src_fs.get_file_client(p.name)
+        dst_file = dst_fs.get_file_client(dst_path)
+
+        stream = src_file.download_file()
+        dst_file.create_file()          # overwrites if exists -> re-runs are safe
+        offset = 0
+        for chunk in stream.chunks():
+            dst_file.append_data(chunk, offset=offset, length=len(chunk))
+            offset += len(chunk)
+        dst_file.flush_data(offset)
+        return p.name
+
+    done, failed = 0, []
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+        futures = {ex.submit(copy_one, p): p for p in paths}
+        for fut in as_completed(futures):
+            p = futures[fut]
+            try:
+                fut.result()
+                done += 1
+                if done % 100 == 0:
+                    print(f"  {done}/{len(paths)} copied...")
+            except Exception as e:
+                failed.append((p.name, str(e)))
+                print(f"  FAILED: {p.name} -> {e}")
+
+    print(f"\nCopied: {done}/{len(paths)}. Failed: {len(failed)}")
+
+    # --- 4. Verify: counts and bytes on both sides ---
+    dst_paths = [p for p in dst_fs.get_paths(path=DST_PREFIX, recursive=True) if not p.is_directory]
+    dst_bytes = sum(p.content_length for p in dst_paths)
+    print(f"Source:      {len(paths)} files, {total_bytes/1e9:.2f} GB")
+    print(f"Destination: {len(dst_paths)} files, {dst_bytes/1e9:.2f} GB")
+
+    if failed:
+        print("\nFailed files:")
+        for name, err in failed:
+            print(f"  {name}: {err}")
+        raise Exception(f"{len(failed)} files failed - just re-run this cell (overwrites are safe)")
+    else:
+        print("\nAll files copied successfully.")

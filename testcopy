@@ -56,3 +56,9 @@ src_count = len(dbutils.fs.ls(src))
 dst_count = len(dbutils.fs.ls(dst))
 print(f"Source items: {src_count}, Destination items: {dst_count}")
 
+
+####
+
+SHOW VOLUMES IN azp_prp_adapt_01.bios;
+SHOW VOLUMES IN azp_prod_adapt_01.bios;
+

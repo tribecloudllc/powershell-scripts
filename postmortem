@@ -1,0 +1,90 @@
+# Postmortem: Incomplete Data Population — [Pipeline/Job Name]
+
+**Status:** Draft / In Review / Final
+**Severity:** SEV-[1/2/3/4]
+**Incident date:** [YYYY-MM-DD]
+**Detected:** [YYYY-MM-DD HH:MM CET] — via [alert / user report / manual check]
+**Resolved:** [YYYY-MM-DD HH:MM CET]
+**Duration of impact:** [X hours/days]
+**Author:** Daniel [Last name]
+**Reviewers:** [Names]
+**Related tickets:** [JIRA-123]
+
+---
+
+## 1. Executive Summary
+
+On [date], the [job/workflow name] Databricks pipeline experienced a [partial/complete] failure, resulting in incomplete data population in [table(s)/dataset(s)]. The issue was detected on [date/time] via [detection method] and fully resolved on [date/time], after which all affected data was backfilled and validated. The root cause was [one-sentence root cause]. No data was permanently lost. This document describes the incident timeline, impact, root cause, and the corrective actions we are taking to prevent recurrence.
+
+## 2. Impact
+
+- **Affected systems/datasets:** [tables, schemas, dashboards, reports]
+- **Affected consumers:** [teams, stakeholders, downstream systems]
+- **Business impact:** [e.g., reports showed understated figures for X days; decisions potentially made on incomplete data]
+- **Data loss:** [None — data was recoverable and backfilled / describe any permanent loss]
+- **Customer-facing impact:** [Yes/No — describe]
+
+## 3. Timeline (all times CET)
+
+| Date & Time | Event |
+|---|---|
+| [YYYY-MM-DD HH:MM] | [Job scheduled run started] |
+| [YYYY-MM-DD HH:MM] | [Job failed / partially completed — describe] |
+| [YYYY-MM-DD HH:MM] | [Issue detected — how and by whom] |
+| [YYYY-MM-DD HH:MM] | [Investigation started] |
+| [YYYY-MM-DD HH:MM] | [Root cause identified] |
+| [YYYY-MM-DD HH:MM] | [Fix applied / job rerun] |
+| [YYYY-MM-DD HH:MM] | [Backfill completed] |
+| [YYYY-MM-DD HH:MM] | [Data validated — incident closed] |
+
+## 4. Root Cause Analysis
+
+**What happened:**
+[Detailed technical explanation — e.g., the job failed at stage X due to Y; only partitions A–M were written before failure, leaving N–Z unpopulated.]
+
+**Why it happened (root cause):**
+[Underlying cause — e.g., cluster OOM from data volume growth, dependency failure, schema change upstream, misconfigured retry policy.]
+
+**Why it wasn't caught sooner:**
+[e.g., job reported success despite partial write; no row-count validation; alerting gap.]
+
+**Contributing factors:**
+- [Factor 1]
+- [Factor 2]
+
+## 5. Resolution & Recovery
+
+[How the issue was fixed: e.g., fixed the configuration/code, reran the job for affected partitions, backfilled tables X and Y for the period D1–D2, and validated completeness against source row counts.]
+
+**Validation performed:**
+- [Row-count reconciliation against source]
+- [Spot checks on downstream dashboards]
+- [Sign-off from affected team]
+
+## 6. What Went Well / What Went Poorly
+
+**What went well:**
+- [e.g., fast escalation once detected; backfill process worked as designed]
+
+**What went poorly:**
+- [e.g., detection relied on a user report; delay between failure and detection]
+
+**Where we got lucky:**
+- [e.g., issue occurred before month-end reporting]
+
+## 7. Action Items
+
+| # | Action | Type | Owner | Priority | Due date | Ticket | Status |
+|---|---|---|---|---|---|---|---|
+| 1 | [Add data-completeness checks (row counts/expectations) after each load] | Prevent | [Name] | High | [Date] | [JIRA-] | Open |
+| 2 | [Add alerting on job failure and on data-quality check failure] | Detect | [Name] | High | [Date] | [JIRA-] | Open |
+| 3 | [Fix underlying cause — e.g., right-size cluster, fix retry config] | Prevent | [Name] | High | [Date] | [JIRA-] | Open |
+| 4 | [Document backfill runbook for this pipeline] | Mitigate | [Name] | Medium | [Date] | [JIRA-] | Open |
+
+## 8. Lessons Learned
+
+[2–4 sentences on the broader takeaways — e.g., pipeline success status alone is not a sufficient signal of data completeness; validation must be built into the pipeline itself.]
+
+---
+
+*This postmortem is blameless. Its purpose is to understand systemic causes and improve our processes, not to assign individual fault.*

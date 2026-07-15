@@ -1,0 +1,64 @@
+### What we will improve
+
+#### Quick wins (days, no new infrastructure)
+
+**1. Environment bootstrap runbook**
+A one-page checklist in the dbt repo (docs/howto/bootstrap-environment.md) for first deployments and multi-release jumps. Order matters:
+
+1. Deploy all dlthub bundles that declare the target (Deployment: Prod environment workflow in adapt-dbx-dlthub-data-ingestion) and confirm the release artifact exists under /Workspace/adapt/stable/azpdlt/releases/<version>.
+2. Run every prod-tagged ingestion job once and verify each bronze table is non-empty (simple count per table, we can generate the list from the dbt sources).
+3. Full core build: dbt_azp_manual_job with selector tag:prod (job adds --exclude tag:bi itself), args --full-refresh.
+4. Full BI build: dbt_azp_gold_bi_manual_job with selector tag:bi,tag:prod, args --full-refresh.
+5. Smoke checks: row counts on the main facts + dbx_created_ts newer than the run start.
+
+Rule: during bootstrap nobody runs change-based selectors. Selective refreshes are only for environments that are already fully materialized.
+Effort: ~half a day to write, zero code. Done when: the page exists and is linked from the release workflow description.
+
+**2. Manual refresh request template**
+Confluence template (or Jira issue type) that every refresh request must use. Fields:
+
+- Environment (prp/prod), requested by, business reason
+- Job (dbt_azp_manual_job / dbt_azp_gold_bi_manual_job), selector, args
+- Verification: SQL + expected result (e.g. select dim_lob_cd from gld_uw_sys.uw_int_lob_bridge where dim_claim_no='FG2026 00013067' -> expected 8)
+- Executed by / run URL / verification result
+
+We close the request with the verification output attached, not with "job finished". Half of this incident was runs that "succeeded" while the data stayed wrong.
+Effort: an hour. Done when: first request processed through the template.
+
+**3. Close the bypass on validate-ingestion-coverage**
+Today the gate in wlfw-deploy-release.yml can be skipped with a platform-engineer approval (#1484). Change it so the bypass only silences the *detected-changes* validation, never the ingestion coverage check, and the bypass reason must be written into the PR. Prod deploys with missing ingestion jobs should be impossible, full stop.
+Effort: small workflow change. Done when: a test PR with a missing ingestion job cannot be merged even with approval.
+
+#### Structural (a sprint, code changes)
+
+**4. Selector computation inside the release workflow**
+We already have utils/changes/detect.py + classify.py doing exactly the right thing for dev. Extend to releases:
+
+- In wlfw-deploy-release.yml, after the version bump PR is created, run detect <currently_deployed_tag> <new_tag> and classify --target <env>.
+- Post the four selectors (core FR, BI FR, core+downstream, BI+downstream) as a comment on the deploy PR, ready to copy into the manual jobs.
+- The currently deployed tag is already in databricks/targets/<env>.yml (git_ref), so the workflow has everything it needs.
+
+Effort: 2-3 days incl. testing (detect needs dbt + a token on the runner, same as the existing non-prod flow). Done when: a deploy PR to prp shows the selectors automatically and we stop deriving them by hand.
+
+**5. Blocking pre-flight catalog check in the manual jobs**
+utils/changes/catalog.py already lists tables via the Databricks CLI but "fails open". Build a small pre-flight script around it:
+
+- Input: the selector. Resolve the full upstream closure with dbt ls --select +<selector>.
+- For every non-ephemeral, non-view parent: check the relation exists in the target catalog.
+- Missing objects -> fail BEFORE dbt run starts, print the missing list plus the exact core selector that would build them (+missing_model+,tag:<env>).
+- Wire it as a first task in dbt_azp_manual_job / dbt_azp_gold_bi_manual_job (same pattern as the existing check_params condition task).
+
+This turns a day of TABLE_OR_VIEW_NOT_FOUND whack-a-mole into one failed pre-check with the fix printed in the log.
+Effort: 2-3 days. Done when: running the BI job with a missing silver upstream fails in the pre-flight task with the correct core selector in the output.
+
+**6. CI rule: environment tags must be closed over ancestors**
+Add a test next to tests/test_tags.py: for every model tagged prod, all ancestors in the manifest must also be tagged prod (same for prp). Views/ephemeral included, sources checked against dlthub coverage (see 3). This is exactly the uw_dim_vehicle_model -> slv_ben_vehicles gap - it would have failed CI on the PR that added the prod tag, months before it failed in prod at runtime.
+Effort: 1-2 days (manifest walk, we already parse it in utils/changes). Done when: a PR adding a prod tag to a model with a non-prod ancestor fails CI with a clear message.
+
+**7. Sanctioned backfill instead of manual copies**
+The PRP->PROD copy of BIOS/PARLOA broke dlt schema contracts (dlt_created_ts / data_type freeze) and cost us the longest debugging session of the incident. Going forward:
+
+- Historical data lands in prod through the dlthub pipelines in backfill mode (docs/howto/run-a-backfill.md in the ingestion repo), which produces correct lineage columns and contract-compatible schemas.
+- If a raw copy is ever unavoidable, it needs a documented procedure that copies the delta tables as-is (not row-inserts), keeps all dlt_* columns, and is followed by a contract validation run before anything downstream is executed.
+
+Effort: mostly documentation + one dry run of a BIOS backfill on prp to prove the path. Done when: the runbook forbids ad-hoc copies and the backfill path is tested.

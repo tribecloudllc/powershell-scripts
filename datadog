@@ -1,0 +1,79 @@
+{
+  "family": "datadog-agent-task",
+  "networkMode": "bridge",
+  "requiresCompatibilities": ["EC2"],
+  "containerDefinitions": [
+    {
+      "name": "dd-conf-init",
+      "image": "public.ecr.aws/docker/library/busybox:stable",
+      "essential": false,
+      "cpu": 10,
+      "memory": 32,
+      "command": [
+        "sh",
+        "-c",
+        "mkdir -p /conf.d/system_core.d && printf 'init_config:\\ninstances:\\n  - {}\\n' > /conf.d/system_core.d/conf.yaml && cat /conf.d/system_core.d/conf.yaml"
+      ],
+      "mountPoints": [
+        {
+          "containerPath": "/conf.d",
+          "sourceVolume": "dd_conf",
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "name": "datadog-agent",
+      "image": "public.ecr.aws/datadog/agent:7",
+      "cpu": 100,
+      "memory": 512,
+      "essential": true,
+      "dependsOn": [
+        {
+          "containerName": "dd-conf-init",
+          "condition": "COMPLETE"
+        }
+      ],
+      "mountPoints": [
+        {
+          "containerPath": "/conf.d",
+          "sourceVolume": "dd_conf",
+          "readOnly": true
+        },
+        {
+          "containerPath": "/var/run/docker.sock",
+          "sourceVolume": "docker_sock",
+          "readOnly": true
+        },
+        {
+          "containerPath": "/host/sys/fs/cgroup",
+          "sourceVolume": "cgroup",
+          "readOnly": true
+        },
+        {
+          "containerPath": "/host/proc",
+          "sourceVolume": "proc",
+          "readOnly": true
+        }
+      ],
+      "portMappings": [
+        {
+          "hostPort": 8125,
+          "containerPort": 8125,
+          "protocol": "udp"
+        }
+      ],
+      "environment": [
+        { "name": "DD_API_KEY", "value": "<YOUR_DATADOG_API_KEY>" },
+        { "name": "DD_SITE", "value": "datadoghq.com" },
+        { "name": "DD_DOGSTATSD_NON_LOCAL_TRAFFIC", "value": "true" }
+      ]
+    }
+  ],
+  "volumes": [
+    { "name": "dd_conf", "host": {} },
+    { "name": "docker_sock", "host": { "sourcePath": "/var/run/docker.sock" } },
+    { "name": "proc", "host": { "sourcePath": "/proc/" } },
+    { "name": "cgroup", "host": { "sourcePath": "/sys/fs/cgroup/" } }
+  ]
+}

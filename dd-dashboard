@@ -6872,8 +6872,5 @@
       ]
     }
   ],
-  "tags": [
-    "service:azure-vpn",
-    "cloud_provider:azure"
-  ]
+  "tags": []
 }

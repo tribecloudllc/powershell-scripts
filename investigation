@@ -1,0 +1,73 @@
+I went through the source code for this. What I looked at:
+
+- `DataDog/azure-log-forwarding-orchestration` (commit `924b39d`) - the control plane Python and the Go forwarder, Apache-2.0
+- `DataDog/integrations-management` - the Bicep templates, also public
+- `DataDog/terraform-azurerm-log-forwarding-datadog` (commit `9dafabd`) - the module we deploy with
+
+## Short answer
+
+Yes, the code can be adapted. It is public, Apache-2.0, and all three resources are created in one file (`log_forwarder_client.py`, three functions). But adapting the code is not what we should do here, and the main control we need is not achievable at all.
+
+## What is actually wrong with the resources
+
+The storage account is created in `log_forwarder_client.py:264`. It already sets TLS 1.2, HTTPS only and `allowBlobPublicAccess = false`, so those are fine. What is missing:
+
+- `publicNetworkAccess` is hardcoded to `Enabled` (line 283)
+- no network ACLs at all
+- no tags, on any of the three resources
+- no CMK, no infrastructure encryption
+- SKU hardcoded to `Standard_LRS`
+- no diagnostic settings on the resources themselves
+
+The Container App Environment is created as `ManagedEnvironment(location, zone_redundant=False)` and nothing else. No VNet, no workload profiles, no tags.
+
+The Container App Job has no managed identity. It reads the storage account with a shared key connection string that the control plane pulls from `list_keys()`, and the Go forwarder uses it directly (`forwarder.go:411`).
+
+## Most of this does not need a code change
+
+This is the important part. The scaling task does not re-apply the storage account or the environment after it creates them. When both the job and the storage account exist, the only thing it runs is `ensure_forwarder_settings()`, and that touches the Container App Job only (`scaling_task.py:391`).
+
+So if we harden the storage account after Datadog creates it, our changes stay. We can do tags, CMK and diagnostic settings with Azure Policy (`modify` / `deployIfNotExists`) and never touch Datadog code.
+
+Two conditions:
+
+1. It has to be Policy with automatic remediation on create, not a one-off script. Forwarders get deleted and recreated on scale down / scale up (`scale_down_forwarders`, `delete_region`), so new storage accounts will keep appearing.
+2. The Container App Job is the exception. It gets a full PUT whenever settings drift, so anything we add to it will be removed. We should exempt that resource type instead of fighting it.
+
+## Public network access - this one we cannot do
+
+`publicNetworkAccess = Disabled` is blocked by Azure, not by Datadog.
+
+Azure Monitor diagnostic settings cannot write to a storage account when the public endpoint is off. Microsoft docs are explicit that you need "Allow trusted Microsoft services to bypass this firewall", and that works on the public endpoint with `defaultAction = Deny`. It does not survive the endpoint being disabled. Private endpoints are not supported as a diagnostic settings destination either.
+
+The whole product works as diagnostic settings -> blob -> forwarder reads blob, so turning off the public endpoint breaks ingestion at the source.
+
+The best we can reach is `publicNetworkAccess = Enabled` with `networkAcls.defaultAction = Deny` and `bypass = AzureServices`. Even that needs more work, because with Deny the Container App Job can no longer read the blobs. We would need a workload profile environment with VNet integration and a private endpoint. IP allowlisting does not work - the environment is consumption only and Microsoft confirms those outbound IPs are not static.
+
+## Terraform side
+
+- `var.tags` and `var.storage_replication_type` already exist in `modules/automation`, so tagging and SKU on the control plane is just a tfvars change.
+- The module hardcodes the function apps to `sku_name = "Y1"` (Consumption). We cannot restrict the control plane storage account network without an upstream PR to parameterise that, plus Elastic Premium or Flex, VNet integration and private endpoints for blob and file. Consumption function apps need their storage account publicly reachable.
+- Terraform does not manage the forwarder resources at all. They are created at runtime and never enter our state, which is another reason Policy is the right tool for them.
+- Note the module is young, 8 merged PRs, last one is `fix-infinite-drift-issues`. We should pin `?ref=<sha>`.
+
+Also worth flagging: the control plane's own storage account (`lfostorage<id>`) has the same gaps. The exemption is wider than just the forwarder resources.
+
+## Effort
+
+- **S, around 3-5 days** - Azure Policy remediation for tags, CMK and diagnostic settings. This is what I recommend. It closes most of the gap with no fork and no maintenance, and reduces the exemption to the network controls plus the Container App Job.
+- **M, around 2-3 weeks** - take Datadog's standalone forwarder template (`forwarder.bicep` / `modules/forwarder`) and run hardened forwarders from our own code. Supported by Datadog, not a fork. We lose auto discovery, auto diagnostic settings and auto scaling, so we would manage forwarders per region ourselves.
+- **XL, 2-3 months** - full network compliance with VNet, private endpoints and managed identity end to end (this needs a Go change in the forwarder too), and it still would not give us `publicNetworkAccess = Disabled`.
+
+## What I need from security
+
+Does SLAM accept `defaultAction = Deny` with trusted services bypass as "public access disabled", or does it mean the literal flag? Everything else depends on this answer, so I would like to settle it before we plan any work.
+
+## Two things to verify before we commit
+
+Both of these I read from the code, I have not tested them in our tenant. Half a day each:
+
+1. Tag a `ddlogstorage*` account by hand, let a scaling cycle run, confirm the tag is still there.
+2. Set `defaultAction = Deny` with trusted services bypass on one account in non-prod, confirm diagnostic settings still write and the job's reads fail as expected.
+
+I have a longer write-up with the full gap table, the Terraform snippets and the Policy definition if anyone wants it.

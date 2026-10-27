@@ -1,0 +1,355 @@
+# Review Notes – Adoption of Argo CD for AKS
+
+### 1. Why are we selecting Argo CD without evaluating Rancher Fleet?
+
+This is probably my biggest concern with the ADR.
+
+We currently deploy applications using Helm charts, but the options considered are limited to Azure Pipelines, Flux and Argo CD.
+
+I think we're missing Rancher Fleet, which is specifically designed for GitOps and Helm-based deployments across Kubernetes clusters.
+
+Fleet uses Helm as its deployment engine, while Argo CD primarily uses Helm to render manifests and manages the actual deployment itself.
+
+That's a fairly important difference considering our existing deployment model.
+
+I would like to see Fleet evaluated alongside Argo CD before we make the final decision.
+
+At minimum, the comparison should cover:
+
+- Helm chart and release compatibility.
+- Existing Helm release migration.
+- Multi-cluster deployment management.
+- Environment-specific Helm values.
+- Rollout and rollback behavior.
+- GitOps reconciliation and drift detection.
+- RBAC, security and operational overhead.
+- Developer experience and troubleshooting.
+
+At the moment, the justification for Argo CD seems to focus mainly on its UI and application health visibility. I don't think that's enough to justify selecting it as our deployment standard.
+
+### 2. Helm compatibility and release management are not properly addressed
+
+I think we need a dedicated section explaining what happens to our existing Helm deployment model.
+
+With Argo CD, Helm is used to generate Kubernetes manifests rather than executing `helm install` or `helm upgrade` as we do today.
+
+This means the Helm release lifecycle is no longer managed in the same way.
+
+How does that affect our existing charts, release history and operational procedures?
+
+For example:
+
+- What happens to existing Helm release metadata?
+- Can we still use `helm history`, `helm status` and `helm rollback`?
+- How do charts using Helm hooks behave?
+- What happens with pre-install and pre-upgrade hooks?
+- How do we handle chart dependencies and CRDs?
+
+I think we need to test our shared Helm base chart with Argo CD and Fleet before making the decision.
+
+If Fleet allows us to retain more of our existing Helm behavior, that should be considered a significant advantage.
+
+### 3. No actual target GitOps architecture
+
+The ADR says that Argo CD will run in each AKS cluster, but that doesn't really describe the architecture.
+
+I would expect to see a diagram showing the complete deployment flow:
+
+Azure Pipelines → Artifact Registry → GitOps Repository → GitOps Controller → AKS
+
+We should explain which component is responsible for each stage.
+
+I would also like to understand how we're planning to manage multiple clusters.
+
+Are we deploying a completely independent Argo CD instance per cluster? If so, how do we maintain consistent configuration, policies and versions across all instances?
+
+This is another area where Fleet should be evaluated, especially its centralized multi-cluster management model.
+
+### 4. Multi-cluster and environment management
+
+I think this is a significant missing section.
+
+How are we planning to manage deployments across dev, QA and production clusters?
+
+For example, if we need to deploy the same application to multiple AKS clusters, how will we manage cluster selection and environment-specific configuration?
+
+With Argo CD, I would expect us to consider ApplicationSets and cluster generators.
+
+With Fleet, we could evaluate cluster labels, cluster groups, targets and rollout partitions.
+
+We should also define whether each cluster has its own source configuration or whether a common configuration is customized per environment.
+
+Without this, we're selecting a GitOps controller without defining how it will actually operate across our infrastructure.
+
+### 5. GitOps repository structure
+
+I would like to see the proposed repository structure.
+
+Are we going to use one central GitOps repository, separate environment repositories, or application-specific repositories?
+
+Where will Helm chart versions and environment-specific values be stored?
+
+How are we going to handle configuration shared by multiple applications?
+
+We should define repository ownership and access permissions as well.
+
+For production, I would expect protected branches, pull request approvals and clear ownership of configuration changes.
+
+I don't think repository structure should be left entirely to the implementation spike.
+
+### 6. Deployment promotion between environments
+
+The document says Azure Pipelines will promote workloads by updating Git configuration, but it doesn't explain the process.
+
+How exactly do we promote a release from dev to QA and production?
+
+Will the pipeline create a pull request? Who approves it? What prevents production from automatically picking up an untested version?
+
+I would prefer an approach where we build the artifact once and promote the same immutable artifact through the environments.
+
+We should also define whether environments follow exact chart versions and image digests or whether any automated version updates are allowed.
+
+I think this needs to be part of the architecture because it directly affects release governance.
+
+### 7. Deployment rollout strategy
+
+I would add a section describing how we want to perform application rollouts.
+
+Should all clusters receive a new release at the same time?
+
+What happens if we deploy an application to ten clusters and the first deployment fails?
+
+I would like us to evaluate staged deployments, canary clusters, health checks and automatic suspension of further rollout when failures are detected.
+
+Fleet supports partition-based rollouts across clusters, which looks relevant here.
+
+Argo CD has ApplicationSet Progressive Syncs, but we should evaluate their behavior and feature maturity rather than assuming they provide exactly the same capabilities.
+
+This is particularly important for production platform components.
+
+### 8. Self-healing and drift management
+
+The ADR states that self-healing will be enabled in all environments.
+
+I think that's too broad without defining which resources should actually be reconciled automatically.
+
+We need to consider legitimate changes made by Kubernetes controllers, autoscalers and operators.
+
+For example, what happens if an HPA changes a workload's replica count? How do we avoid Argo CD continuously reporting differences or reverting fields that another controller is supposed to manage?
+
+We should establish a standard for ignored differences, field ownership and exceptions.
+
+I would also separate automated synchronization, self-healing and pruning. They are not the same thing and should not automatically follow the same policy.
+
+### 9. Resource pruning and accidental deletion
+
+I think pruning is completely underexplained.
+
+What happens when someone removes an application from Git?
+
+Will the controller automatically delete all Kubernetes resources associated with it?
+
+How do we prevent accidental deletion of critical components, PVCs, namespaces or other persistent resources?
+
+We should define a standard deletion policy and establish which resources are allowed to be pruned automatically.
+
+I would also like to see a controlled application decommissioning procedure.
+
+Removing a directory or manifest from Git should not automatically be treated as sufficient authorization to destroy every associated resource.
+
+### 10. Application RBAC and security isolation
+
+The ADR mentions Entra ID SSO and namespace-level RBAC, but this is not enough.
+
+We should explicitly define the authorization model.
+
+For Argo CD, how are we planning to use AppProjects?
+
+What repositories, clusters, namespaces and resource kinds will each application team be allowed to access?
+
+How do we prevent application teams from deploying privileged resources or changing the GitOps controller configuration?
+
+I would also expect restrictions on who can manually synchronize production applications, override parameters or modify application definitions.
+
+GitOps does not automatically prevent direct changes to production clusters. Kubernetes RBAC and additional admission controls must enforce that separately.
+
+### 11. GitOps controller credentials and supply-chain security
+
+One of the advantages mentioned is removing standing cluster credentials from Azure Pipelines.
+
+That makes sense, but it doesn't eliminate the need for privileged identities.
+
+The GitOps controller still requires permissions to modify Kubernetes resources.
+
+How will those permissions be scoped?
+
+How will Git repository credentials be handled?
+
+How will access to private Helm charts and container registries work?
+
+I would also like to see how we verify that the deployment is using approved charts and images.
+
+We should ensure that moving from a push model to a pull model actually reduces the security exposure rather than moving privileged access into another component.
+
+### 12. Platform add-ons versus application workloads
+
+I think we need a clearer separation between platform components and application workloads.
+
+The ADR proposes managing both with Argo CD, but they have very different operational requirements.
+
+For example, Gatekeeper, monitoring components, ingress controllers and cluster networking components may require elevated permissions or special installation sequencing.
+
+Who owns those deployments?
+
+Should application teams be able to see or change them?
+
+How do we prevent a failed platform component upgrade from blocking further GitOps reconciliation?
+
+I would prefer a dedicated platform deployment model with separate permissions, lifecycle and approval processes.
+
+### 13. Terraform and Argo CD ownership boundaries
+
+The decision says Terraform keeps namespace bootstrapping, cluster RBAC and Argo CD installation.
+
+That's a good starting point, but we need more detail.
+
+Some Helm charts also create RBAC resources, service accounts, CRDs and other cluster-level objects.
+
+What happens when an application or platform chart needs to modify those?
+
+How do we avoid Terraform and Argo CD managing the same Kubernetes resources?
+
+I would define the ownership boundary at resource level rather than relying only on the distinction between infrastructure and applications.
+
+### 14. Migration of existing Helm releases
+
+The current adoption section is far too short.
+
+Saying that existing applications will move to Argo CD without changing infrastructure ownership does not explain how the migration will happen.
+
+We already have Helm releases deployed through Azure Pipelines.
+
+How do we transfer management to Argo CD without causing redeployments, resource ownership conflicts or unexpected changes?
+
+I think we need a defined migration approach covering:
+
+- Existing Helm release discovery.
+- Comparison of Helm-rendered manifests with the target GitOps output.
+- Resource tracking and ownership metadata.
+- Helm hook compatibility.
+- Validation that applications remain available.
+- Disabling the existing pipeline deployment mechanism.
+- Recovery if migration fails.
+
+I would also compare this procedure with Fleet, particularly because Fleet uses Helm for deployment.
+
+### 15. Rollback strategy
+
+I think rollback needs much more detail.
+
+Currently, the ADR doesn't really explain how we recover from a failed application release.
+
+If we adopt Argo CD with automated synchronization, manually rolling back the application may not be sufficient because Git remains the desired state.
+
+Do we revert the Git commit, update the Helm chart version or restore an earlier image digest?
+
+How do we handle deployments containing database migrations or other changes that cannot be rolled back automatically?
+
+We should define a consistent release rollback procedure before changing the deployment standard.
+
+### 16. High availability and disaster recovery
+
+The document correctly identifies Argo CD as a critical component, but doesn't define how we'll make it reliable.
+
+If we're running an instance per AKS cluster, do we require HA in every production cluster?
+
+What happens if Argo CD is unavailable during a production incident?
+
+How do we restore it if its configuration or the cluster is lost?
+
+What are the recovery objectives, and how are they tested?
+
+We should also evaluate the operational differences between Argo CD per cluster and Fleet's central management model, including the consequences of losing the management plane.
+
+### 17. Monitoring, alerting and operational ownership
+
+I don't think having a UI showing application health is enough.
+
+We need a monitoring and alerting strategy.
+
+Who gets notified when an application becomes OutOfSync or Degraded?
+
+What happens when the controller cannot access Git, the chart registry or the Kubernetes API?
+
+How are failed synchronization attempts handled?
+
+I would expect a standard dashboard, alerts, operational runbooks and clear responsibility between the platform team and application teams.
+
+### 18. Scaling and performance
+
+I would also like to understand our expected scale.
+
+How many AKS clusters, applications and Kubernetes resources are we planning to manage?
+
+How many GitOps controllers and supporting components will we need?
+
+What are the expected CPU and memory requirements?
+
+We should compare the operational footprint of the proposed Argo CD architecture with Fleet, particularly if we're considering one Argo CD deployment per cluster.
+
+This should be measured in the PoC rather than based entirely on vendor documentation.
+
+### 19. The comparison with alternatives is not sufficient
+
+The current options table is too simplistic for an architecture decision.
+
+Flux is mostly rejected because it doesn't provide the same first-class UI as Argo CD.
+
+I don't think this is a strong enough technical argument.
+
+We should define evaluation criteria first and compare the tools against them.
+
+The evaluation should include Argo CD, Flux and Rancher Fleet.
+
+I would specifically look at Helm compatibility, multi-cluster management, security, release promotion, rollback, operational complexity, visibility and integration with our existing Azure Pipelines setup.
+
+Only after that comparison should we make the final technology selection.
+
+### 20. The PoC does not cover enough
+
+The proposed spike covers installation, deployment, self-healing, SSO and basic drift detection.
+
+I think that's insufficient for a decision that changes the deployment model across all AKS environments.
+
+I would extend the PoC to include:
+
+- Deployment of our actual shared Helm base chart.
+- Migration of an existing Helm release.
+- Helm hooks and chart dependencies.
+- Deployment promotion across environments.
+- Multi-cluster targeting.
+- Controlled rollouts and rollback.
+- Resource pruning and deletion protection.
+- RBAC and team isolation.
+- Git repository and registry authentication.
+- Failure scenarios and recovery.
+- Monitoring and alerting.
+- Performance and operational resource usage.
+
+Most importantly, I would run the same representative workload through Argo CD and Fleet.
+
+That would give us a much stronger basis for selecting the technology.
+
+### Overall feedback
+
+I agree that moving towards GitOps is the right direction, and our current Azure Pipelines-based Helm deployment approach doesn't provide continuous reconciliation.
+
+However, I don't think this ADR currently provides enough justification for selecting Argo CD.
+
+The options comparison is incomplete, especially with Rancher Fleet missing. Given that we're already using Helm charts, I think Fleet is a particularly relevant alternative and deserves a proper evaluation.
+
+The document also lacks important implementation details around repository structure, multi-cluster management, release promotion, rollback, security, migration and operational ownership.
+
+I would prefer to define the target GitOps architecture first, evaluate Argo CD and Fleet against our actual requirements, and validate both with our existing Helm charts.
+
+At this stage, I would keep the ADR in proposed status and request a more complete technical evaluation before accepting the decision.

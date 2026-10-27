@@ -1,0 +1,126 @@
+# Crossplane ADR – My Review Notes
+
+### 1. Why do we actually need Crossplane?
+
+- I understand the idea of having Azure resources deployed together with the application, but I'm not fully convinced we have demonstrated why Crossplane is better than improving our existing Terraform pipelines.
+- What specific problems are we trying to solve? Deployment time, manual steps, dependency management, or something else?
+- I would like to see a comparison based on one of our actual workloads, including what changes in the deployment process and what we gain from it.
+- We should also consider the additional maintenance overhead of introducing another control plane.
+
+### 2. Resource ownership and lifecycle
+
+- I think the boundary between Terraform and Crossplane needs to be more precise.
+- Just because a resource belongs to an AKS application doesn't necessarily mean it should follow the application's lifecycle.
+- For example, databases, Storage Accounts and Key Vaults may need to survive application redeployments or even complete cluster replacement.
+- We already mention excluding `Delete` from management policies, which is good, but what happens to resources left behind after an application is removed?
+- Who is responsible for identifying, maintaining and eventually deleting those resources?
+- I would separate ephemeral resources, persistent resources and shared infrastructure more explicitly.
+
+### 3. Disaster recovery
+
+- What happens if we lose the entire AKS cluster?
+- Crossplane itself can be redeployed, but how do we recover the managed resource definitions and reconnect them to existing Azure resources?
+- I would like to see a tested recovery procedure, especially for databases and other stateful resources.
+- We also need to make sure that rebuilding the cluster doesn't accidentally create duplicate resources or modify existing ones.
+- This should be covered in the PoC, not left for later.
+
+### 4. Multiple AKS clusters
+
+- We are planning to run Crossplane separately in each AKS cluster, which makes sense from an isolation perspective.
+- But what if an application runs in multiple clusters or needs to move between them?
+- How do we make sure two Crossplane instances don't try to manage the same Azure resource?
+- I think we need a clear ownership model for multi-cluster deployments and cluster migrations.
+
+### 5. Helm deployment and resource readiness
+
+- The document correctly mentions that successful Helm deployment doesn't mean Azure resources are ready.
+- How are we going to handle this in the current deployment process?
+- For example, if PostgreSQL provisioning fails, does the application deployment fail as well?
+- Argo CD is mentioned as a possible solution, but it's a separate ADR, so we shouldn't make this design dependent on it.
+- I would define how provisioning failures, timeouts and readiness checks will work independently of the delivery tool.
+
+### 6. Composition versioning
+
+- I like the proposed approach to provider upgrades, especially pinning versions and testing before production.
+- However, I think we're missing the lifecycle of the compositions themselves.
+- What happens when the platform team changes an existing composition used by multiple applications?
+- Could the change unintentionally update existing Azure resources?
+- I would introduce composition versioning, compatibility testing and controlled rollout.
+- We should also decide whether production workloads automatically adopt new CompositionRevisions or stay pinned until explicitly upgraded.
+
+### 7. Security and policy enforcement
+
+- Moving security checks from Terraform to compositions and admission control makes sense.
+- However, I would like to understand how we guarantee the same security coverage we have today.
+- Converting Checkov rules into Rego is not necessarily a one-to-one mapping.
+- I think we should have a mapping of our existing security controls to the new enforcement mechanisms.
+- We should also be clear about what is enforced by Gatekeeper, what is validated in CI and what is enforced by Azure Policy.
+- Another concern is permissions. How do we prevent an application team from bypassing approved compositions or provisioning resources outside the intended scope?
+
+### 8. Identity and secrets
+
+- I agree with preferring Entra ID authentication instead of generating credentials.
+- But for resources that still require passwords, the proposed Key Vault integration needs more detail.
+- How exactly are generated credentials transferred into Key Vault?
+- Will they temporarily exist in Kubernetes Secrets?
+- How will credential rotation work?
+- I would like to see this demonstrated in the PoC, including failure scenarios.
+- We should also review the proposed Azure permissions for Crossplane provider identities and avoid unnecessarily broad subscription-level access.
+
+### 9. Migration from Terraform
+
+- The gradual migration approach makes sense, and I agree we shouldn't force a big-bang migration.
+- However, I think we need a documented process for transferring resource ownership.
+- How do we make sure Terraform and Crossplane never manage the same resource simultaneously?
+- What happens if Crossplane discovers configuration differences after importing a resource?
+- We should test migration and rollback using actual resources before moving production workloads.
+- I would also define what happens if an imported resource cannot be managed correctly by the Crossplane provider.
+
+### 10. Provider compatibility
+
+- The provider comparison is detailed, and it's good that all 34 Azure resource types have been checked for CRD availability.
+- However, CRD availability doesn't guarantee full compatibility with our Terraform configuration.
+- I would validate the properties we actually use, particularly private endpoints, networking, managed identities and database configuration.
+- Some integrations still need Terraform, including incident.io and potentially database permissions.
+- We should check how many of our actual workloads can be completely managed through Crossplane without introducing additional deployment dependencies.
+
+### 11. Operational overhead
+
+- I'm not sure the estimated Crossplane footprint gives us enough information yet.
+- The number of provider pods and CRDs looks significant, although the real impact depends on which resource types are activated.
+- I would like to see actual measurements from an AKS PoC rather than relying on AWS provider figures.
+- CPU, memory, Kubernetes API load and reconciliation performance should all be measured.
+- We also need monitoring and alerting for provider failures, reconciliation errors and Azure API throttling.
+- Who will be responsible for troubleshooting these issues, especially outside business hours?
+
+### 12. Provider upgrades and compatibility
+
+- The provider upgrade strategy looks reasonable.
+- One concern is that each cluster uses shared provider versions, so a problematic upgrade could potentially affect multiple workloads.
+- I would add compatibility testing against all existing compositions before upgrading.
+- We also need to confirm that rolling back a provider version is safe when CRD schemas or resource properties have changed.
+- The current version lag behind Terraform should be treated as an ongoing operational risk, not only an initial adoption concern.
+
+### 13. Alternative approaches
+
+- I think we should strengthen the comparison with our existing Terraform setup.
+- Is improving Terraform automation enough to achieve the same outcome with less operational complexity?
+- It might also be worth considering Crossplane compositions with Azure Service Operator instead of relying exclusively on the Upjet Azure provider.
+- I'm not suggesting we change the selected solution, but I would like the ADR to explain why the chosen approach is preferable.
+
+### 14. Proof of concept and acceptance criteria
+
+- Before making Crossplane our standard for new AKS workloads, I would prefer to validate it against real production-like scenarios.
+- The PoC should include more than creating and deleting basic Azure resources.
+- I would specifically test provisioning failures, persistent-resource retention, Terraform migration, provider upgrades, composition changes, cluster recovery and security enforcement.
+- We should define clear pass/fail criteria and measurable benefits compared with the current deployment process.
+
+### My overall view
+
+I think the ADR is a good starting point, and the provider research is detailed. The proposed separation between Terraform for shared infrastructure and Crossplane for workload-specific resources generally makes sense.
+
+My main concern is that we're making a fairly significant change to our infrastructure management model. We need to be confident that we're actually simplifying delivery rather than just moving complexity from Terraform pipelines into Kubernetes.
+
+I wouldn't reject the approach, but I would prefer to address the lifecycle, recovery, security and operational questions before making Crossplane the default for new workloads.
+
+I would support moving forward with a focused PoC and making the final adoption decision based on the results.
